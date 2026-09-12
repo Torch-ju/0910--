@@ -93,4 +93,5 @@
 - 文档：README 增加浏览器打开地址、Next.js 页面入口和主要修改文件说明。
 - 检查：npm test -- --run 6 个文件 / 75 项通过；npm run lint、npm run typecheck、npm run build 通过。清空回归测试确认删除后 600ms 内不会由自动保存重新创建。
 - Git：远程 origin/main 为 bb41e12f；已从该基点创建 cachmeiss7，提交 c01ee3c7 已推送并设置跟踪 origin/cachmeiss7。推送提交不含 .env.local、node_modules、.next、output 或 runtime。
-- 遗留：本地预览需在项目根目录重新执行 npm run dev 后访问 http://127.0.0.1:3000；真实模型额度与历史 NPC 链路状态不变，未发起新请求。
+- 本地预览：已执行 npm run dev，启动 exec 会话 93837，http://127.0.0.1:3000 返回 HTTP 200；真实模型额度与历史 NPC 链路状态不变，未发起新请求。
+
