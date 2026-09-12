@@ -1,0 +1,6 @@
+async (page) => {
+  await page.evaluate(() => window.scrollTo(0,0));
+  page.once("dialog", dialog => dialog.accept());
+  await page.getByRole("button",{name:"重新发起（消耗新额度）",exact:true}).click();
+  return {started:true,action:"explicit-new-attempt",url:page.url()};
+}

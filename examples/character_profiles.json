@@ -1,0 +1,363 @@
+{
+  "schema_version": "1.0.0",
+  "document_type": "character_profiles",
+  "story_id": "story_example",
+  "revision": 1,
+  "created_at": "2026-09-12T06:21:18.743Z",
+  "updated_at": "2026-09-12T06:21:18.743Z",
+  "characters": [
+    {
+      "character_id": "npc_student",
+      "controlled_by": "npc",
+      "aliases": [],
+      "name": {
+        "value": "沈照",
+        "source": "user_edited",
+        "status": "pending_confirmation",
+        "locked": false,
+        "evidence": [],
+        "updated_at": "2026-09-12T06:21:18.744Z"
+      },
+      "identity": {
+        "value": "失忆剑客",
+        "source": "ai_suggestion",
+        "status": "pending_confirmation",
+        "locked": false,
+        "evidence": [],
+        "updated_at": "2026-09-12T06:21:18.744Z"
+      },
+      "role": {
+        "value": "待定",
+        "source": "ai_suggestion",
+        "status": "pending_confirmation",
+        "locked": false,
+        "evidence": [],
+        "updated_at": "2026-09-12T06:21:18.744Z"
+      },
+      "appearance": {
+        "value": "",
+        "source": "ai_suggestion",
+        "status": "draft",
+        "locked": false,
+        "evidence": [],
+        "updated_at": "2026-09-12T06:21:18.744Z"
+      },
+      "personality": {
+        "value": [],
+        "source": "ai_suggestion",
+        "status": "draft",
+        "locked": false,
+        "evidence": [],
+        "updated_at": "2026-09-12T06:21:18.744Z"
+      },
+      "desire": {
+        "value": "",
+        "source": "ai_suggestion",
+        "status": "draft",
+        "locked": false,
+        "evidence": [],
+        "updated_at": "2026-09-12T06:21:18.744Z"
+      },
+      "fear": {
+        "value": "",
+        "source": "ai_suggestion",
+        "status": "draft",
+        "locked": false,
+        "evidence": [],
+        "updated_at": "2026-09-12T06:21:18.744Z"
+      },
+      "secret": {
+        "value": "",
+        "source": "ai_suggestion",
+        "status": "draft",
+        "locked": false,
+        "evidence": [],
+        "updated_at": "2026-09-12T06:21:18.744Z"
+      },
+      "background": {
+        "value": "",
+        "source": "ai_suggestion",
+        "status": "draft",
+        "locked": false,
+        "evidence": [],
+        "updated_at": "2026-09-12T06:21:18.744Z"
+      },
+      "speech_style": {
+        "value": "",
+        "source": "ai_suggestion",
+        "status": "draft",
+        "locked": false,
+        "evidence": [],
+        "updated_at": "2026-09-12T06:21:18.744Z"
+      },
+      "behavior_tendencies": {
+        "value": [],
+        "source": "ai_suggestion",
+        "status": "draft",
+        "locked": false,
+        "evidence": [],
+        "updated_at": "2026-09-12T06:21:18.744Z"
+      },
+      "growth_arc": {
+        "starting_state": {
+          "value": "",
+          "source": "ai_suggestion",
+          "status": "draft",
+          "locked": false,
+          "evidence": [],
+          "updated_at": "2026-09-12T06:21:18.744Z"
+        },
+        "pressure_point": {
+          "value": "",
+          "source": "ai_suggestion",
+          "status": "draft",
+          "locked": false,
+          "evidence": [],
+          "updated_at": "2026-09-12T06:21:18.744Z"
+        },
+        "possible_direction": {
+          "value": "",
+          "source": "ai_suggestion",
+          "status": "draft",
+          "locked": false,
+          "evidence": [],
+          "updated_at": "2026-09-12T06:21:18.744Z"
+        },
+        "user_confirmed": false
+      },
+      "entrance_condition": {
+        "value": "",
+        "source": "ai_suggestion",
+        "status": "draft",
+        "locked": false,
+        "evidence": [],
+        "updated_at": "2026-09-12T06:21:18.744Z"
+      },
+      "current_state": {
+        "value": "",
+        "source": "ai_suggestion",
+        "status": "draft",
+        "locked": false,
+        "evidence": [],
+        "updated_at": "2026-09-12T06:21:18.744Z"
+      },
+      "known_information": {
+        "value": [],
+        "source": "ai_suggestion",
+        "status": "draft",
+        "locked": false,
+        "evidence": [],
+        "updated_at": "2026-09-12T06:21:18.744Z"
+      },
+      "unknown_information": {
+        "value": [],
+        "source": "ai_suggestion",
+        "status": "draft",
+        "locked": false,
+        "evidence": [],
+        "updated_at": "2026-09-12T06:21:18.744Z"
+      },
+      "relationship_ids": [
+        "rel_mentor"
+      ],
+      "timeline_event_ids": [],
+      "hard_constraints": [],
+      "open_questions": [],
+      "change_log": []
+    },
+    {
+      "character_id": "npc_master",
+      "controlled_by": "npc",
+      "aliases": [],
+      "name": {
+        "value": "无名师父",
+        "source": "user_edited",
+        "status": "pending_confirmation",
+        "locked": false,
+        "evidence": [],
+        "updated_at": "2026-09-12T06:21:18.744Z"
+      },
+      "identity": {
+        "value": "隐居的师父",
+        "source": "ai_suggestion",
+        "status": "pending_confirmation",
+        "locked": false,
+        "evidence": [],
+        "updated_at": "2026-09-12T06:21:18.744Z"
+      },
+      "role": {
+        "value": "待定",
+        "source": "ai_suggestion",
+        "status": "pending_confirmation",
+        "locked": false,
+        "evidence": [],
+        "updated_at": "2026-09-12T06:21:18.744Z"
+      },
+      "appearance": {
+        "value": "",
+        "source": "ai_suggestion",
+        "status": "draft",
+        "locked": false,
+        "evidence": [],
+        "updated_at": "2026-09-12T06:21:18.744Z"
+      },
+      "personality": {
+        "value": [],
+        "source": "ai_suggestion",
+        "status": "draft",
+        "locked": false,
+        "evidence": [],
+        "updated_at": "2026-09-12T06:21:18.744Z"
+      },
+      "desire": {
+        "value": "",
+        "source": "ai_suggestion",
+        "status": "draft",
+        "locked": false,
+        "evidence": [],
+        "updated_at": "2026-09-12T06:21:18.744Z"
+      },
+      "fear": {
+        "value": "",
+        "source": "ai_suggestion",
+        "status": "draft",
+        "locked": false,
+        "evidence": [],
+        "updated_at": "2026-09-12T06:21:18.744Z"
+      },
+      "secret": {
+        "value": "",
+        "source": "ai_suggestion",
+        "status": "draft",
+        "locked": false,
+        "evidence": [],
+        "updated_at": "2026-09-12T06:21:18.744Z"
+      },
+      "background": {
+        "value": "",
+        "source": "ai_suggestion",
+        "status": "draft",
+        "locked": false,
+        "evidence": [],
+        "updated_at": "2026-09-12T06:21:18.744Z"
+      },
+      "speech_style": {
+        "value": "",
+        "source": "ai_suggestion",
+        "status": "draft",
+        "locked": false,
+        "evidence": [],
+        "updated_at": "2026-09-12T06:21:18.744Z"
+      },
+      "behavior_tendencies": {
+        "value": [],
+        "source": "ai_suggestion",
+        "status": "draft",
+        "locked": false,
+        "evidence": [],
+        "updated_at": "2026-09-12T06:21:18.744Z"
+      },
+      "growth_arc": {
+        "starting_state": {
+          "value": "",
+          "source": "ai_suggestion",
+          "status": "draft",
+          "locked": false,
+          "evidence": [],
+          "updated_at": "2026-09-12T06:21:18.744Z"
+        },
+        "pressure_point": {
+          "value": "",
+          "source": "ai_suggestion",
+          "status": "draft",
+          "locked": false,
+          "evidence": [],
+          "updated_at": "2026-09-12T06:21:18.744Z"
+        },
+        "possible_direction": {
+          "value": "",
+          "source": "ai_suggestion",
+          "status": "draft",
+          "locked": false,
+          "evidence": [],
+          "updated_at": "2026-09-12T06:21:18.744Z"
+        },
+        "user_confirmed": false
+      },
+      "entrance_condition": {
+        "value": "",
+        "source": "ai_suggestion",
+        "status": "draft",
+        "locked": false,
+        "evidence": [],
+        "updated_at": "2026-09-12T06:21:18.744Z"
+      },
+      "current_state": {
+        "value": "",
+        "source": "ai_suggestion",
+        "status": "draft",
+        "locked": false,
+        "evidence": [],
+        "updated_at": "2026-09-12T06:21:18.744Z"
+      },
+      "known_information": {
+        "value": [],
+        "source": "ai_suggestion",
+        "status": "draft",
+        "locked": false,
+        "evidence": [],
+        "updated_at": "2026-09-12T06:21:18.744Z"
+      },
+      "unknown_information": {
+        "value": [],
+        "source": "ai_suggestion",
+        "status": "draft",
+        "locked": false,
+        "evidence": [],
+        "updated_at": "2026-09-12T06:21:18.744Z"
+      },
+      "relationship_ids": [
+        "rel_mentor"
+      ],
+      "timeline_event_ids": [
+        "event_history"
+      ],
+      "hard_constraints": [],
+      "open_questions": [],
+      "change_log": []
+    }
+  ],
+  "relationships": [
+    {
+      "relationship_id": "rel_mentor",
+      "from_character_id": "npc_student",
+      "to_character_id": "npc_master",
+      "type": "mentor",
+      "description": {
+        "value": "待确认关系",
+        "source": "ai_suggestion",
+        "status": "pending_confirmation",
+        "locked": false,
+        "evidence": [],
+        "updated_at": "2026-09-12T06:21:18.744Z"
+      },
+      "current_state": {
+        "value": "",
+        "source": "ai_suggestion",
+        "status": "draft",
+        "locked": false,
+        "evidence": [],
+        "updated_at": "2026-09-12T06:21:18.744Z"
+      },
+      "possible_direction": {
+        "value": "",
+        "source": "ai_suggestion",
+        "status": "draft",
+        "locked": false,
+        "evidence": [],
+        "updated_at": "2026-09-12T06:21:18.744Z"
+      }
+    }
+  ],
+  "change_log": []
+}

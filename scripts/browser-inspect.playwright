@@ -1,0 +1,9 @@
+async (page) => {
+  const state = await page.evaluate(() => {
+    const raw = localStorage.getItem("shuzhongren.workspace.v1");
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    return { revision: data.current.snapshot_revision, title: data.current.world.title.value, npcCount: data.current.characters.characters.length, timelineCount: data.current.world.timeline.length, pending: data.pending ? { endpoint: data.pending.endpoint, operationId: data.pending.body.operation_id } : null, candidate: data.candidate ? { title: data.candidate.world.title.value, npcCount: data.candidate.characters.characters.length, timelineCount: data.candidate.world.timeline.length, summary: data.candidate.summary } : null };
+  });
+  return { state, alerts: await page.getByRole("alert").allTextContents(), body: (await page.locator("body").innerText()).slice(0,1600) };
+}

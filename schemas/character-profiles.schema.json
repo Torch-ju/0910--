@@ -1,0 +1,313 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://shuzhongren.local/schemas/character-profiles.schema.json",
+  "title": "CharacterProfiles",
+  "type": "object",
+  "description": "动态 NPC 画像与人物关系集合。",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "document_type",
+    "story_id",
+    "revision",
+    "created_at",
+    "updated_at",
+    "characters",
+    "relationships",
+    "change_log"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0",
+      "type": "string",
+      "description": "数据契约版本。"
+    },
+    "document_type": {
+      "const": "character_profiles",
+      "type": "string",
+      "description": "人物文档类型。"
+    },
+    "story_id": {
+      "$ref": "common.schema.json#/$defs/stableId",
+      "description": "与世界文档一致的故事 ID。"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "文档修订号。"
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp",
+      "description": "文档创建的系统时间。"
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/timestamp",
+      "description": "最后更新的系统时间。"
+    },
+    "characters": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/character"
+      },
+      "description": "人数由用户输入和故事需要决定；允许尚无人物的草稿，不设固定人数。"
+    },
+    "relationships": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/relationship"
+      },
+      "description": "唯一关系本体数组。"
+    },
+    "change_log": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/$defs/changeLogEntry",
+        "description": "人物文档变更。"
+      },
+      "description": "文档级变更轨迹。"
+    }
+  },
+  "$defs": {
+    "character": {
+      "type": "object",
+      "description": "供 NPC Agent 与后续叙事使用的人物画像。",
+      "additionalProperties": false,
+      "required": [
+        "character_id",
+        "controlled_by",
+        "aliases",
+        "name",
+        "identity",
+        "role",
+        "appearance",
+        "personality",
+        "desire",
+        "fear",
+        "secret",
+        "background",
+        "speech_style",
+        "behavior_tendencies",
+        "growth_arc",
+        "entrance_condition",
+        "current_state",
+        "known_information",
+        "unknown_information",
+        "relationship_ids",
+        "timeline_event_ids",
+        "hard_constraints",
+        "open_questions",
+        "change_log"
+      ],
+      "properties": {
+        "character_id": {
+          "$ref": "common.schema.json#/$defs/stableId",
+          "description": "稳定角色 ID，改名不改变。"
+        },
+        "controlled_by": {
+          "type": "string",
+          "description": "用户明确扮演的角色由用户控制，否则为 NPC。",
+          "enum": [
+            "npc",
+            "user"
+          ]
+        },
+        "aliases": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "description": "已有称谓或别名。"
+          },
+          "description": "用于识别同一人物，歧义须确认。"
+        },
+        "name": {
+          "$ref": "common.schema.json#/$defs/factString",
+          "description": "姓名或未命名称呼。"
+        },
+        "identity": {
+          "$ref": "common.schema.json#/$defs/factString",
+          "description": "身份、职业和社会位置。"
+        },
+        "role": {
+          "$ref": "common.schema.json#/$defs/factString",
+          "description": "核心、配角或待定叙事定位。"
+        },
+        "appearance": {
+          "$ref": "common.schema.json#/$defs/factString",
+          "description": "可识别外貌或动作特征。"
+        },
+        "personality": {
+          "$ref": "common.schema.json#/$defs/factStringArray",
+          "description": "可观察的性格特征。"
+        },
+        "desire": {
+          "$ref": "common.schema.json#/$defs/factString",
+          "description": "核心欲望或当前目标。"
+        },
+        "fear": {
+          "$ref": "common.schema.json#/$defs/factString",
+          "description": "恐惧或不愿面对的事。"
+        },
+        "secret": {
+          "$ref": "common.schema.json#/$defs/factString",
+          "description": "隐藏信息，未确定时留草稿。"
+        },
+        "background": {
+          "$ref": "common.schema.json#/$defs/factString",
+          "description": "与世界历史一致的经历。"
+        },
+        "speech_style": {
+          "$ref": "common.schema.json#/$defs/factString",
+          "description": "词汇、语气和说话习惯。"
+        },
+        "behavior_tendencies": {
+          "$ref": "common.schema.json#/$defs/factStringArray",
+          "description": "在压力和选择中的行为倾向。"
+        },
+        "growth_arc": {
+          "type": "object",
+          "description": "角色成长计划，不是历史。",
+          "additionalProperties": false,
+          "required": [
+            "starting_state",
+            "pressure_point",
+            "possible_direction",
+            "user_confirmed"
+          ],
+          "properties": {
+            "starting_state": {
+              "$ref": "common.schema.json#/$defs/factString",
+              "description": "开局状态。"
+            },
+            "pressure_point": {
+              "$ref": "common.schema.json#/$defs/factString",
+              "description": "可能迫使人物改变的压力。"
+            },
+            "possible_direction": {
+              "$ref": "common.schema.json#/$defs/factString",
+              "description": "未发生的成长方向。"
+            },
+            "user_confirmed": {
+              "type": "boolean",
+              "description": "从组成事实的确认状态派生，模型不得自定。"
+            }
+          }
+        },
+        "entrance_condition": {
+          "$ref": "common.schema.json#/$defs/factString",
+          "description": "何时、为何出场。"
+        },
+        "current_state": {
+          "$ref": "common.schema.json#/$defs/factString",
+          "description": "开局处境、心理与资源。"
+        },
+        "known_information": {
+          "$ref": "common.schema.json#/$defs/factStringArray",
+          "description": "人物已知的信息。"
+        },
+        "unknown_information": {
+          "$ref": "common.schema.json#/$defs/factStringArray",
+          "description": "人物尚不知但与剧情相关的信息。"
+        },
+        "relationship_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "common.schema.json#/$defs/stableId",
+            "description": "顶层关系 ID。"
+          },
+          "description": "只引用关系，不重复保存本体。"
+        },
+        "timeline_event_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "common.schema.json#/$defs/stableId",
+            "description": "世界历史事件 ID。"
+          },
+          "description": "人物前史涉及的事件。"
+        },
+        "hard_constraints": {
+          "type": "array",
+          "items": {
+            "$ref": "common.schema.json#/$defs/constraint",
+            "description": "人物约束。"
+          },
+          "description": "需保留的角色要求。"
+        },
+        "open_questions": {
+          "type": "array",
+          "items": {
+            "$ref": "common.schema.json#/$defs/openQuestion",
+            "description": "人物未决问题。"
+          },
+          "description": "需澄清的身份或关系。"
+        },
+        "change_log": {
+          "type": "array",
+          "items": {
+            "$ref": "common.schema.json#/$defs/changeLogEntry",
+            "description": "人物变更。"
+          },
+          "description": "角色的重要修改轨迹。"
+        }
+      },
+      "title": "Character"
+    },
+    "relationship": {
+      "type": "object",
+      "description": "方向明确的角色关系。",
+      "additionalProperties": false,
+      "required": [
+        "relationship_id",
+        "from_character_id",
+        "to_character_id",
+        "type",
+        "description",
+        "current_state",
+        "possible_direction"
+      ],
+      "properties": {
+        "relationship_id": {
+          "$ref": "common.schema.json#/$defs/stableId",
+          "description": "关系 ID。"
+        },
+        "from_character_id": {
+          "$ref": "common.schema.json#/$defs/stableId",
+          "description": "关系起点角色。"
+        },
+        "to_character_id": {
+          "$ref": "common.schema.json#/$defs/stableId",
+          "description": "关系终点角色。"
+        },
+        "type": {
+          "type": "string",
+          "description": "关系类别。",
+          "enum": [
+            "family",
+            "friend",
+            "ally",
+            "rival",
+            "enemy",
+            "mentor",
+            "romantic",
+            "professional",
+            "dependent",
+            "unknown",
+            "custom"
+          ]
+        },
+        "description": {
+          "$ref": "common.schema.json#/$defs/factString",
+          "description": "关系内容。"
+        },
+        "current_state": {
+          "$ref": "common.schema.json#/$defs/factString",
+          "description": "当前互动态度。"
+        },
+        "possible_direction": {
+          "$ref": "common.schema.json#/$defs/factString",
+          "description": "可能发展，不代表已经发生。"
+        }
+      },
+      "title": "Relationship"
+    }
+  }
+}

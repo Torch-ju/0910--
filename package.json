@@ -1,0 +1,42 @@
+{
+  "name": "shuzhongren",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/next.mjs dev --hostname 127.0.0.1",
+    "build": "node scripts/next.mjs build",
+    "start": "node scripts/next.mjs start --hostname 127.0.0.1",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "schemas:generate": "node scripts/generate-types.mjs",
+    "schemas:check": "node scripts/generate-types.mjs --check"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "lucide-react": "latest",
+    "next": "16.3.5",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "latest",
+    "@tailwindcss/postcss": "4.3.3",
+    "@testing-library/jest-dom": "latest",
+    "@testing-library/react": "latest",
+    "@types/node": "^24",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "latest",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.3.5",
+    "jsdom": "latest",
+    "json-schema-to-typescript": "^15.0.4",
+    "tailwindcss": "4.3.3",
+    "typescript": "^5.9.3",
+    "vitest": "5.0.0"
+  }
+}

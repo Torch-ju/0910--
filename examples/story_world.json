@@ -1,0 +1,202 @@
+{
+  "schema_version": "1.0.0",
+  "document_type": "story_world",
+  "story_id": "story_example",
+  "revision": 1,
+  "created_at": "2026-09-12T06:21:18.743Z",
+  "updated_at": "2026-09-12T06:21:18.743Z",
+  "title": {
+    "value": "雪落青崖",
+    "source": "ai_suggestion",
+    "status": "pending_confirmation",
+    "locked": false,
+    "evidence": [],
+    "updated_at": "2026-09-12T06:21:18.744Z"
+  },
+  "logline": {
+    "value": "开局的一封来信，让师徒重新面对封山往事。",
+    "source": "ai_suggestion",
+    "status": "pending_confirmation",
+    "locked": false,
+    "evidence": [],
+    "updated_at": "2026-09-12T06:21:18.744Z"
+  },
+  "summary": {
+    "value": "用于 Schema 和交互说明的合成示例，不是固定角色模板。",
+    "source": "ai_suggestion",
+    "status": "pending_confirmation",
+    "locked": false,
+    "evidence": [],
+    "updated_at": "2026-09-12T06:21:18.744Z"
+  },
+  "genre": {
+    "value": [],
+    "source": "ai_suggestion",
+    "status": "draft",
+    "locked": false,
+    "evidence": [],
+    "updated_at": "2026-09-12T06:21:18.744Z"
+  },
+  "themes": {
+    "value": [],
+    "source": "ai_suggestion",
+    "status": "draft",
+    "locked": false,
+    "evidence": [],
+    "updated_at": "2026-09-12T06:21:18.744Z"
+  },
+  "tone": {
+    "value": [],
+    "source": "ai_suggestion",
+    "status": "draft",
+    "locked": false,
+    "evidence": [],
+    "updated_at": "2026-09-12T06:21:18.744Z"
+  },
+  "setting": {
+    "era": {
+      "value": "承平十三年",
+      "source": "ai_suggestion",
+      "status": "pending_confirmation",
+      "locked": false,
+      "evidence": [],
+      "updated_at": "2026-09-12T06:21:18.744Z"
+    },
+    "geography": {
+      "value": "青崖山与山下旧渡口",
+      "source": "ai_suggestion",
+      "status": "pending_confirmation",
+      "locked": false,
+      "evidence": [],
+      "updated_at": "2026-09-12T06:21:18.744Z"
+    },
+    "locations": [],
+    "society": {
+      "value": "",
+      "source": "ai_suggestion",
+      "status": "draft",
+      "locked": false,
+      "evidence": [],
+      "updated_at": "2026-09-12T06:21:18.744Z"
+    },
+    "technology_or_power_system": {
+      "value": "",
+      "source": "ai_suggestion",
+      "status": "draft",
+      "locked": false,
+      "evidence": [],
+      "updated_at": "2026-09-12T06:21:18.744Z"
+    },
+    "world_rules": []
+  },
+  "organizations": [],
+  "core_conflict": {
+    "description": {
+      "value": "",
+      "source": "ai_suggestion",
+      "status": "draft",
+      "locked": false,
+      "evidence": [],
+      "updated_at": "2026-09-12T06:21:18.744Z"
+    },
+    "forces": {
+      "value": [],
+      "source": "ai_suggestion",
+      "status": "draft",
+      "locked": false,
+      "evidence": [],
+      "updated_at": "2026-09-12T06:21:18.744Z"
+    },
+    "stakes": {
+      "value": "",
+      "source": "ai_suggestion",
+      "status": "draft",
+      "locked": false,
+      "evidence": [],
+      "updated_at": "2026-09-12T06:21:18.744Z"
+    },
+    "open_issues": {
+      "value": [],
+      "source": "ai_suggestion",
+      "status": "draft",
+      "locked": false,
+      "evidence": [],
+      "updated_at": "2026-09-12T06:21:18.744Z"
+    }
+  },
+  "initial_outline": [],
+  "timeline": [
+    {
+      "event_id": "event_history",
+      "name": {
+        "value": "封山",
+        "source": "user_edited",
+        "status": "pending_confirmation",
+        "locked": false,
+        "evidence": [],
+        "updated_at": "2026-09-12T06:21:18.744Z"
+      },
+      "time_label": {
+        "value": "开局三年前",
+        "source": "ai_suggestion",
+        "status": "pending_confirmation",
+        "locked": false,
+        "evidence": [],
+        "updated_at": "2026-09-12T06:21:18.744Z"
+      },
+      "order": 0,
+      "period": "history",
+      "description": {
+        "value": "",
+        "source": "ai_suggestion",
+        "status": "draft",
+        "locked": false,
+        "evidence": [],
+        "updated_at": "2026-09-12T06:21:18.744Z"
+      },
+      "related_character_ids": [
+        "npc_master"
+      ],
+      "related_location_ids": [],
+      "after_event_ids": []
+    },
+    {
+      "event_id": "event_opening",
+      "name": {
+        "value": "一封旧信",
+        "source": "user_edited",
+        "status": "pending_confirmation",
+        "locked": false,
+        "evidence": [],
+        "updated_at": "2026-09-12T06:21:18.744Z"
+      },
+      "time_label": {
+        "value": "开局之日",
+        "source": "ai_suggestion",
+        "status": "pending_confirmation",
+        "locked": false,
+        "evidence": [],
+        "updated_at": "2026-09-12T06:21:18.744Z"
+      },
+      "order": 1,
+      "period": "opening",
+      "description": {
+        "value": "",
+        "source": "ai_suggestion",
+        "status": "draft",
+        "locked": false,
+        "evidence": [],
+        "updated_at": "2026-09-12T06:21:18.744Z"
+      },
+      "related_character_ids": [],
+      "related_location_ids": [],
+      "after_event_ids": [
+        "event_history"
+      ]
+    }
+  ],
+  "hard_constraints": [],
+  "prohibited_content": [],
+  "open_questions": [],
+  "change_log": []
+}
