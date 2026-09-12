@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>人物记忆 Agent 验证台</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header>
+      <div>
+        <p class="eyebrow">DYNAMIC CHARACTER MEMORY</p>
+        <h1>人物记忆 Agent 验证台</h1>
+        <p class="subtitle">逐轮验证人物事件、动态画像、身份揭示、冲突和纠错通知。</p>
+      </div>
+      <div class="status-wrap">
+        <span id="health-dot" class="dot"></span>
+        <span id="health">正在连接</span>
+        <span class="version">记忆版本 <strong id="version">0</strong></span>
+      </div>
+    </header>
+
+    <main>
+      <section class="panel controls">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">STEP BY STEP</p>
+            <h2>预置验证剧情</h2>
+          </div>
+          <button id="reset" class="ghost">重置全部记忆</button>
+        </div>
+        <p class="hint">请按顺序点击。绿色表示正常更新，黄色表示需要用户关注。</p>
+        <div id="scenario-buttons" class="scenario-grid"></div>
+      </section>
+
+      <section class="metrics">
+        <article><span>人物</span><strong id="metric-characters">0</strong></article>
+        <article><span>事件</span><strong id="metric-events">0</strong></article>
+        <article><span>重要关系</span><strong id="metric-relations">0</strong></article>
+        <article><span>待处理通知</span><strong id="metric-notifications">0</strong></article>
+      </section>
+
+      <section class="workspace">
+        <div class="panel portraits-panel">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">CURRENT STATE</p>
+              <h2>最新人物画像</h2>
+            </div>
+          </div>
+          <div id="portraits" class="portraits empty">运行第一轮剧情后显示画像</div>
+        </div>
+
+        <aside class="side-stack">
+          <section class="panel">
+            <p class="eyebrow">ATTENTION</p>
+            <h2>通知与冲突</h2>
+            <div id="notifications" class="list empty">暂无通知</div>
+          </section>
+          <section class="panel">
+            <p class="eyebrow">AUDIT TRAIL</p>
+            <h2>事件时间线</h2>
+            <div id="events" class="list empty">暂无事件</div>
+          </section>
+        </aside>
+      </section>
+
+      <details class="panel custom">
+        <summary>高级验证：编辑本轮抽取 JSON</summary>
+        <p class="hint">这里验证记忆核心逻辑，不代表最终模型抽取效果。正式环境由模型适配器从情景演绎文本生成该结构。</p>
+        <label>本轮情景演绎<textarea id="custom-narrative"></textarea></label>
+        <label>抽取结果 JSON<textarea id="custom-extraction" class="code"></textarea></label>
+        <button id="run-custom" class="primary">运行自定义轮次</button>
+      </details>
+
+      <section class="panel raw-panel">
+        <details>
+          <summary>查看当前原始状态</summary>
+          <pre id="raw-state">{}</pre>
+        </details>
+      </section>
+    </main>
+
+    <div id="toast" role="status"></div>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
