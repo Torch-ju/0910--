@@ -60,7 +60,6 @@ export function useWorkbench():{model:WorkbenchModel;actions:WorkbenchActions}{
     if(endpoint==="npcs"&&!s.snapshot.world.title.value.trim()){update({error:{code:"WORLD_REQUIRED",userMessage:"请先构建或填写世界框架，再生成 NPC。",retryable:false}});return;}
     if(endpoint==="npcs"&&s.snapshot.recognition?.questions.some(q=>q.blocking)){update({error:{code:"OPEN_QUESTIONS",userMessage:"世界已保留，请先回答识别反馈中的关键问题，再生成 NPC。",retryable:false}});return;}
     if(!s.snapshot.input.trim()){update({error:{code:"SHARED_IDEA_REQUIRED",userMessage:"请先填写共同故事想法；局部要求不能替代故事总设定。",retryable:false}});return;}
-    if(s.provider?.remaining===0){update({error:{code:"request_budget_exhausted",userMessage:"本轮真实调用额度已用完。原故事与输入已保留，不会自动重试。",retryable:false}});return;}
     if(field){try{getFieldContract(s.snapshot.world,s.snapshot.characters,field);}catch(e){update({error:errorOf(e)});return;}}
     if(s.candidate){update({error:{code:"CANDIDATE_PENDING",userMessage:"请先采用或放弃当前候选修改，再发起新的生成。",retryable:false}});return;}
     const before=structuredClone(s.snapshot);

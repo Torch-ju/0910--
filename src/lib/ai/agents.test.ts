@@ -107,14 +107,14 @@ describe("StoryAgents", () => {
     expect(mock.calls()).toBe(0);
   });
 
-  it("charges the repair attempt and then enforces the persistent request budget", async () => {
-    const input = request(); const limited = { ...env, LLM_REQUEST_LIMIT: "2" };
-    const mock = sequence([response({ malformed: true }), response(frameworkResult(input))]);
-    const ledger = await temporaryLedger(); const agents = createStoryAgents({ env: limited, ledger, fetcher: mock.fetcher });
+  it("charges repair attempts while allowing requests beyond the old local cap", async () => {
+    const input = request();
+    const mock = sequence([response({ malformed: true }), response(frameworkResult(input)), response(frameworkResult(input))]);
+    const ledger = await temporaryLedger(); const agents = createStoryAgents({ env, ledger, fetcher: mock.fetcher });
     await agents.framework(input);
-    await expect(agents.framework({ ...input, operation_id: "op_framework_02" })).rejects.toMatchObject({ status: 429 });
-    expect(await ledger.used()).toBe(2);
-    expect(mock.calls()).toBe(2);
+    await expect(agents.framework({ ...input, operation_id: "op_framework_02" })).resolves.toBeDefined();
+    expect(await ledger.used()).toBe(3);
+    expect(mock.calls()).toBe(3);
   });
 
   it("marks malformed JSON as a schema failure after its single repair", async () => {
@@ -271,3 +271,4 @@ describe("StoryAgents", () => {
     expect(mock.calls()).toBe(2);
   });
 });
+

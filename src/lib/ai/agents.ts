@@ -137,7 +137,7 @@ export class StoryAgents {
   async used(): Promise<number> { return this.ledger.used(); }
   private async run<T>(action: string, request: AgentRequest, system: string, user: string, decode: (value: unknown) => T): Promise<T> {
     const fingerprint = fingerprintFor(action, { input: request.input, context: request.context, field: request.field, preset_id: request.preset_id, target: request.target, character_id: request.character_id, recognition: request.recognition, world: request.world, characters: request.characters }, request.base_revision);
-    const reservation = await this.ledger.reserve(request.operation_id, fingerprint, this.config.limit, this.config.model);
+    const reservation = await this.ledger.reserve(request.operation_id, fingerprint, this.config.model);
     if (reservation.replay !== undefined) return reservation.replay as T;
     let previous = "<no parseable JSON>";
     const attempt = async (repair?: StoryProviderError): Promise<T> => {
@@ -158,7 +158,7 @@ export class StoryAgents {
       } catch (error) {
         const provider = error as StoryProviderError;
         if (!(provider instanceof StoryProviderError) || provider.error.code !== "schema_error") throw error;
-        await this.ledger.reserve(request.operation_id, fingerprint, this.config.limit, this.config.model, "repair");
+        await this.ledger.reserve(request.operation_id, fingerprint, this.config.model, "repair");
         const result = await attempt(provider);
         await this.ledger.finish(request.operation_id, "success", result);
         return result;

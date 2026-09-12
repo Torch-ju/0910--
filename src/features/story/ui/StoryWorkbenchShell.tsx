@@ -106,7 +106,7 @@ export function StoryWorkbench({ model, actions }: WorkbenchProps) {
   const [tab, setTab] = useState<Tab>("world");
   const provider = model.provider;
   return <main className="story-workbench">
-    <header className="sw-header"><a className="sw-brand" href="#" aria-label="书中人工作台"><BookOpen size={23} /><span>书中人</span></a><div className="sw-header__meta"><span>阶段：{model.stage}</span><span>{model.savedAt ? "已保存" : "尚未保存"}</span><span>{provider ? (provider.configured ? "模型余量 " + provider.remaining + "/" + provider.limit : "模型未配置") : "模型状态未知"}</span></div></header>
+    <header className="sw-header"><a className="sw-brand" href="#" aria-label="书中人工作台"><BookOpen size={23} /><span>书中人</span></a><div className="sw-header__meta"><span>阶段：{model.stage}</span><span>{model.savedAt ? "已保存" : "尚未保存"}</span><span>{provider ? (provider.configured ? "模型已连接 · 已记录 " + provider.used + " 次" : "模型未配置") : "模型状态未知"}</span></div></header>
     <ErrorBanner model={model} actions={actions} />
     <Candidate model={model} actions={actions} />
     <div className="sw-workarea"><Conversation model={model} actions={actions} /><section className="sw-structured"><nav className="sw-tabs" aria-label="故事状态">{(Object.keys(labels) as Tab[]).map((item) => <button type="button" key={item} aria-current={tab === item ? "page" : undefined} className={tab === item ? "is-active" : ""} onClick={() => setTab(item)}>{labels[item]}</button>)}</nav>{tab === "world" && <WorldPanel model={model} actions={actions} />}{tab === "characters" && <CharactersPanel model={model} actions={actions} />}{tab === "timeline" && <TimelinePanel model={model} actions={actions} />}</section></div>
@@ -114,3 +114,4 @@ export function StoryWorkbench({ model, actions }: WorkbenchProps) {
     <footer className="sw-footer"><button type="button" className="sw-button sw-button--accent" onClick={actions.confirmAll}><Check size={16} />确认当前设定</button><button type="button" className="sw-button sw-button--quiet" onClick={actions.save}><Save size={16} />保存</button><button type="button" className="sw-button sw-button--quiet" disabled={!model.canUndo} onClick={actions.undo}><Undo2 size={16} />撤销</button><button type="button" className="sw-button sw-button--quiet" onClick={() => actions.exportJson("world")}><Download size={16} />导出世界 JSON</button><button type="button" className="sw-button sw-button--quiet" onClick={() => actions.exportJson("characters")}><FileDown size={16} />导出人物 JSON</button></footer>
   </main>;
 }
+

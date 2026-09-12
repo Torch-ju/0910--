@@ -3,11 +3,11 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import type { AppError, ProviderStatus } from "@/lib/story/contracts";
 
-export const DEFAULT_REQUEST_LIMIT = 10;
+export const EFFECTIVE_REQUEST_LIMIT = Number.MAX_SAFE_INTEGER;
 export const DEFAULT_OUTPUT_TOKENS = 8192;
 export const DEFAULT_TIMEOUT_MS = 180_000;
 
-export type ModelConfig = { baseUrl: string; model: string; apiKey: string; limit: number; timeoutMs?: number };
+export type ModelConfig = { baseUrl: string; model: string; apiKey: string; timeoutMs?: number };
 export type AttemptTelemetry = { startedAt: string; endedAt: string; model: string; httpStatus?: number; durationMs: number; usage?: { promptTokens?: number; completionTokens?: number; totalTokens?: number } };
 export type ModelReply = { content: string; finishReason: string | null; telemetry: AttemptTelemetry };
 type StoredFailure = { code: string; userMessage: string; retryable: boolean };
@@ -48,24 +48,20 @@ export function readModelConfig(env: Record<string, string | undefined> = proces
   let url: URL;
   try { url = new URL(configuredBase); } catch { return fail("configuration_error", "模型服务地址无效。", 503); }
   if (url.protocol !== "https:" && !isLocalHttp(url)) return fail("configuration_error", "模型服务地址必须使用 HTTPS。", 503);
-  const limitValue = Number(env.LLM_REQUEST_LIMIT ?? DEFAULT_REQUEST_LIMIT);
-  const limit = Number.isInteger(limitValue) && limitValue > 0 ? limitValue : DEFAULT_REQUEST_LIMIT;
   const timeoutValue = env.LLM_TIMEOUT_MS === undefined ? DEFAULT_TIMEOUT_MS : Number(env.LLM_TIMEOUT_MS);
   if (!Number.isInteger(timeoutValue) || timeoutValue < 1_000 || timeoutValue > 300_000) return fail("configuration_error", "LLM_TIMEOUT_MS 必须为 1000 至 300000 毫秒。", 503);
   const normalized = url.pathname.replace(/\/+$/, "");
   url.pathname = normalized.endsWith("/v1") ? `${normalized}/chat/completions` : `${normalized}/v1/chat/completions`;
-  return { baseUrl: url.toString(), model: configuredModel, apiKey: configuredKey, limit, timeoutMs: timeoutValue };
+  return { baseUrl: url.toString(), model: configuredModel, apiKey: configuredKey, timeoutMs: timeoutValue };
 }
 
 export function providerStatus(env: Record<string, string | undefined> = process.env, used = 0): ProviderStatus {
   try {
     const config = readModelConfig(env);
-    return { configured: true, model: config.model, used, limit: config.limit, remaining: Math.max(0, config.limit - used) };
+    return { configured: true, model: config.model, used, limit: EFFECTIVE_REQUEST_LIMIT, remaining: EFFECTIVE_REQUEST_LIMIT - used };
   } catch (error) {
     const provider = error as StoryProviderError;
-    const limitValue = Number(env.LLM_REQUEST_LIMIT ?? DEFAULT_REQUEST_LIMIT);
-    const limit = Number.isInteger(limitValue) && limitValue > 0 ? limitValue : DEFAULT_REQUEST_LIMIT;
-    return { configured: false, model: env.LLM_MODEL?.trim() || null, used, limit, remaining: Math.max(0, limit - used), configuration_error: provider.error?.userMessage ?? "模型配置不可用。" };
+    return { configured: false, model: env.LLM_MODEL?.trim() || null, used, limit: EFFECTIVE_REQUEST_LIMIT, remaining: EFFECTIVE_REQUEST_LIMIT - used, configuration_error: provider.error?.userMessage ?? "模型配置不可用。" };
   }
 }
 
@@ -97,7 +93,7 @@ export class RequestLedger {
     await rename(temp, this.path);
   }
   async used(): Promise<number> { return exclusively(async () => (await this.load()).used); }
-  async reserve(operationId: string, fingerprint: string, limit: number, model: string, kind: "initial" | "repair" = "initial"): Promise<{ replay?: unknown }> {
+  async reserve(operationId: string, fingerprint: string, model: string, kind: "initial" | "repair" = "initial"): Promise<{ replay?: unknown }> {
     return exclusively(async () => {
       if (!isStableOperationId(operationId)) fail("invalid_request", "operation_id 格式无效。", 400);
       const ledger = await this.load();
@@ -111,7 +107,6 @@ export class RequestLedger {
         }
         if (existing.state === "failed") fail(existing.failure?.code ?? "provider_error", existing.failure?.userMessage ?? "先前请求失败。", 502, existing.failure?.retryable);
       }
-      if (ledger.used >= limit) fail("request_budget_exhausted", "模型请求预算已用完。", 429);
       ledger.used += 1;
       const receipt = existing ?? { fingerprint, state: "in_progress" as const, attempts: [] };
       receipt.state = "in_progress";
