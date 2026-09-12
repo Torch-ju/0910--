@@ -52,7 +52,7 @@
 ## 第一层实施接续入口
 
 - 最新真实状态、模型预算和下一项动作：CURRENT.md。
-- 本轮实施与检查历史：HISTORY.md 中 OP-20260912-002。
+- 本轮实施与检查历史：HISTORY.md 中 OP-20260912-004。
 - 公共 Schema 与内部模型投影取舍：DECISIONS.md 中 D011。
 - 文本模型与真实证据分级：DECISIONS.md 中 D012。
 - 运行、检查命令及目录导航：根目录 README.md。
@@ -63,3 +63,4 @@
 ## 字段级共创与候选冲突
 
 功能入口：PRODUCT_SPEC 的 FR-L1-COCREATE-01/02/03。实现定位：src/lib/story/field-contract.ts、src/lib/story/candidate.ts、src/features/story/use-workbench.ts。执行事件：HISTORY 的 OP-20260912-004。最新结果仅看 CURRENT；取舍见 DECISIONS 的 D014。
+
