@@ -62,4 +62,4 @@
 
 ## 字段级共创与候选冲突
 
-功能入口：PRODUCT_SPEC 的 FR-L1-COCREATE-01/02/03。实现定位：src/lib/story/field-contract.ts、src/lib/story/candidate.ts、src/features/story/use-workbench.ts。执行事件：HISTORY 的 OP-20260912-003。最新结果仅看 CURRENT；取舍见 DECISIONS 的 D014。
+功能入口：PRODUCT_SPEC 的 FR-L1-COCREATE-01/02/03。实现定位：src/lib/story/field-contract.ts、src/lib/story/candidate.ts、src/features/story/use-workbench.ts。执行事件：HISTORY 的 OP-20260912-004。最新结果仅看 CURRENT；取舍见 DECISIONS 的 D014。

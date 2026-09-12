@@ -81,3 +81,16 @@
 - 本轮明确剩余问题：申请修复额度失败时覆盖了原始 Schema 错误；NPC 接续只检查 recognition 关键问题，未同时检查 world.open_questions。已告知用户，未擅自继续另一轮修补或增加额度。
 - 合成批量浏览器脚本因 CLI 执行环境没有全局 URL 报错，记录 FAIL，不把未执行的断言写成通过。
 - 当前生产服务：127.0.0.1:3000，exec 13266。用户浏览器没有被清空或强制刷新。已保存草稿可继续手动编辑，付费生成因额度用尽被禁用。
+
+
+## OP-20260912-004：首屏简化、清空数据与 Git 分支发布
+
+- 日期：2026-09-12。
+- 状态：CHECKED。
+- 用户目标：去掉不需要的开头展示，补充清空数据按钮，说明本地打开方式，并将当前项目推送到 GitHub 的 cachmeiss7 分支。
+- 已落盘：移除 Provider 顶层的自动 NPC 设置和关系编辑块，将澄清问题回答入口收回对话区；移除装饰性 sw-hero 开场区，将故事风格选择移到故事输入区；关系编辑收进 NPC 工作区折叠区；新增清空当前故事、候选和本地备份的动作与确认提示。
+- 清空实现：删除 shuzhongren.workspace.v1 及其 .archive. 本地键；清空时使排队的自动保存失效，避免旧快照写回；模型请求账本不受影响。
+- 文档：README 增加浏览器打开地址、Next.js 页面入口和主要修改文件说明。
+- 检查：npm test -- --run 6 个文件 / 75 项通过；npm run lint、npm run typecheck、npm run build 通过。清空回归测试确认删除后 600ms 内不会由自动保存重新创建。
+- Git：远程 origin/main 为 bb41e12f；已从该基点创建 cachmeiss7，提交 c01ee3c7 已推送并设置跟踪 origin/cachmeiss7。推送提交不含 .env.local、node_modules、.next、output 或 runtime。
+- 遗留：本地预览需在项目根目录重新执行 npm run dev 后访问 http://127.0.0.1:3000；真实模型额度与历史 NPC 链路状态不变，未发起新请求。
