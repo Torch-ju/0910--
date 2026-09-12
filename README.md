@@ -131,3 +131,17 @@ npx --yes --package @playwright/cli playwright-cli -s=shuzhongren-check run-code
 - 第一层产品开发完整提示词.md：历史入口重定向，不再独立维护另一份规格。
 
 接续开发先读 AGENTS、CURRENT 和 INDEX，再按任务定位规格、Schema 与代码。不能因旧任务写着进行中就推断进程仍在运行，也不能把测试通过等同于真实模型流程通过。
+
+## 独立人物记忆模块
+
+`memory-agent/` 是独立 Node.js 包，保留自己的依赖、TypeScript 配置和测试。它已合入仓库，但尚未接入工作台的运行流程。根应用类型检查排除此目录；开发该模块时执行：
+
+```bash
+cd memory-agent
+npm ci
+npm run typecheck
+npm test
+npm run build
+```
+
+接口和数据库说明见 [memory-agent/README.md](memory-agent/README.md)。

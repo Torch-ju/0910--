@@ -95,3 +95,15 @@
 - Git：远程 origin/main 为 bb41e12f；已从该基点创建 cachmeiss7，提交 c01ee3c7 已推送并设置跟踪 origin/cachmeiss7。推送提交不含 .env.local、node_modules、.next、output 或 runtime。
 - 本地预览：已执行 npm run dev，启动 exec 会话 93837，http://127.0.0.1:3000 返回 HTTP 200；真实模型额度与历史 NPC 链路状态不变，未发起新请求。
 
+
+## OP-20260912-005：合并 cachmeiss7 与 peng 到 main
+
+- 日期：2026-09-12；状态：CHECKED（本地合并及验证完成）。
+- 授权：用户明确要求把两个分支合并至远端 main；保留来源分支。
+- 基点：main bb41e12fec97398affe05ffa4126f32bd8f3372f；来源 cachmeiss7 71adec096b929bef68a250c744ab1b98109543b4、peng cedd40adf55a732525191a5009c53c7f46616eaa。
+- 两次普通合并无文本冲突，保留 main 原有资料与来源分支历史。
+- 集成修正：根 tsconfig 排除独立 memory-agent，避免未安装其依赖时主应用类型检查报 pg 缺失；修正前复现 FAIL，修正后移开模块依赖验证 PASS，并恢复依赖。README 补充独立模块入口。
+- PASS：主应用 6 文件 / 74 项测试、Lint、类型检查、Schema 类型一致性、JSON 样例校验、Webpack 生产构建；memory-agent 12 项测试、类型检查与构建；git diff --check。
+- 环境限制：默认 Turbopack 构建因创建子进程绑定端口报 Operation not permitted，提升执行权限后仍失败；npm run build -- --webpack 成功。npm 原有缓存权限失败后使用临时缓存成功。
+- NOT_RUN：真实模型、数据库及浏览器端到端联调。合并不表示 memory-agent 已接入工作台，也不改变此前 NPC 链路未验收的状态。
+- 发布：本检查点随普通 main 推送发布；推送后需从远端确认两个源提交均为 main 祖先及 PR #1 状态。
