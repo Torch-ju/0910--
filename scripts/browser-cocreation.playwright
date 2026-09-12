@@ -1,0 +1,84 @@
+async (page) => {
+  const requests = [];
+  const browserErrors = [];
+  page.on("pageerror", error => browserErrors.push(error.message));
+  const template = {"character_id":"npc_student","controlled_by":"npc","aliases":[],"name":{"value":"沈照","source":"user_edited","status":"pending_confirmation","locked":false,"evidence":[],"updated_at":"2026-09-12T06:21:18.744Z"},"identity":{"value":"失忆剑客","source":"ai_suggestion","status":"pending_confirmation","locked":false,"evidence":[],"updated_at":"2026-09-12T06:21:18.744Z"},"role":{"value":"待定","source":"ai_suggestion","status":"pending_confirmation","locked":false,"evidence":[],"updated_at":"2026-09-12T06:21:18.744Z"},"appearance":{"value":"","source":"ai_suggestion","status":"draft","locked":false,"evidence":[],"updated_at":"2026-09-12T06:21:18.744Z"},"personality":{"value":[],"source":"ai_suggestion","status":"draft","locked":false,"evidence":[],"updated_at":"2026-09-12T06:21:18.744Z"},"desire":{"value":"","source":"ai_suggestion","status":"draft","locked":false,"evidence":[],"updated_at":"2026-09-12T06:21:18.744Z"},"fear":{"value":"","source":"ai_suggestion","status":"draft","locked":false,"evidence":[],"updated_at":"2026-09-12T06:21:18.744Z"},"secret":{"value":"","source":"ai_suggestion","status":"draft","locked":false,"evidence":[],"updated_at":"2026-09-12T06:21:18.744Z"},"background":{"value":"","source":"ai_suggestion","status":"draft","locked":false,"evidence":[],"updated_at":"2026-09-12T06:21:18.744Z"},"speech_style":{"value":"","source":"ai_suggestion","status":"draft","locked":false,"evidence":[],"updated_at":"2026-09-12T06:21:18.744Z"},"behavior_tendencies":{"value":[],"source":"ai_suggestion","status":"draft","locked":false,"evidence":[],"updated_at":"2026-09-12T06:21:18.744Z"},"growth_arc":{"starting_state":{"value":"","source":"ai_suggestion","status":"draft","locked":false,"evidence":[],"updated_at":"2026-09-12T06:21:18.744Z"},"pressure_point":{"value":"","source":"ai_suggestion","status":"draft","locked":false,"evidence":[],"updated_at":"2026-09-12T06:21:18.744Z"},"possible_direction":{"value":"","source":"ai_suggestion","status":"draft","locked":false,"evidence":[],"updated_at":"2026-09-12T06:21:18.744Z"},"user_confirmed":false},"entrance_condition":{"value":"","source":"ai_suggestion","status":"draft","locked":false,"evidence":[],"updated_at":"2026-09-12T06:21:18.744Z"},"current_state":{"value":"","source":"ai_suggestion","status":"draft","locked":false,"evidence":[],"updated_at":"2026-09-12T06:21:18.744Z"},"known_information":{"value":[],"source":"ai_suggestion","status":"draft","locked":false,"evidence":[],"updated_at":"2026-09-12T06:21:18.744Z"},"unknown_information":{"value":[],"source":"ai_suggestion","status":"draft","locked":false,"evidence":[],"updated_at":"2026-09-12T06:21:18.744Z"},"relationship_ids":["rel_mentor"],"timeline_event_ids":[],"hard_constraints":[],"open_questions":[],"change_log":[]};
+  const makeFact = value => ({value,source:"ai_suggestion",status:"pending_confirmation",locked:false,evidence:[],updated_at:new Date().toISOString()});
+  await page.route("**/api/story/**", async route => {
+    const endpoint = new URL(route.request().url()).pathname.split("/").at(-1);
+    if(endpoint === "status") return route.fulfill({json:{configured:true,model:"offline-browser-fixture",used:requests.length,limit:10,remaining:10-requests.length}});
+    const body=route.request().postDataJSON(); requests.push({endpoint,body});
+    if(endpoint==="framework"){
+      const world=structuredClone(body.world); world.title=makeFact("离线验收：江湖旧信");
+      world.timeline=[{event_id:"event_offline_opening",name:makeFact("故事开局"),time_label:makeFact("旧朝覆灭后三十年"),order:0,period:"opening",description:makeFact("一封旧信抵达山门"),related_character_ids:[],related_location_ids:[],after_event_ids:[]}];
+      return route.fulfill({json:{world,recognition:{summary:"离线合成测试，人物数量来自本次输入",character_clues:[],hard_constraints:[],ambiguities:[],questions:[]},assistant_message:"离线世界候选"}});
+    }
+    if(endpoint==="npcs"){
+      const characters=structuredClone(body.characters);
+      characters.characters=["沈照","阿禾"].map((name,index)=>({...structuredClone(template),character_id:"npc_offline_"+index,name:makeFact(name),controlled_by:"npc",relationship_ids:[],timeline_event_ids:["event_offline_opening"],change_log:[]}));
+      characters.relationships=[];
+      return route.fulfill({json:{characters,timeline_suggestions:[],warnings:[],assistant_message:"离线 NPC 候选"}});
+    }
+    if(endpoint==="field"){
+      if(body.field.document!=="world"||body.field.path!=="/themes") throw Error("Unexpected field target");
+      const world=structuredClone(body.world);world.themes=makeFact(body.input.includes("另一")?["孤独"]:["个人选择"]);
+      return route.fulfill({json:{world,warnings:[],assistant_message:"离线主题建议"}});
+    }
+    throw Error("Unexpected endpoint "+endpoint);
+  });
+  await page.addInitScript(()=>{window.confirm=()=>true;});
+  await page.evaluate(()=>localStorage.clear());
+  await page.reload();
+  const idea="离线合成验收，不调用模型。东方武侠：只有两名人物，沈照和阿禾，一封旧信抵达山门。";
+  await page.locator("#story-input").fill(idea);
+  const auto=page.getByRole("checkbox",{name:"采用世界后自动生成 NPC"});
+  if(!await auto.isChecked()) throw Error("Auto NPC is not enabled");
+  await auto.uncheck(); await auto.check();
+  await page.getByRole("button",{name:"生成世界框架",exact:true}).click();
+  await page.locator(".sw-candidate").getByText("离线世界候选",{exact:true}).waitFor();
+  await page.locator("#fact-summary").fill("用户补充必须保留");
+  await page.locator("#fact-summary").blur();
+  const accept=page.getByRole("button",{name:"接受改动",exact:true});
+  if(!await accept.isEnabled()) throw Error("Unrelated user edit blocked the world");
+  await accept.click();
+  await page.locator(".sw-candidate").getByText("离线 NPC 候选",{exact:true}).waitFor();
+  if(requests.filter(r=>r.endpoint==="npcs").length!==1) throw Error("NPC automatic call count is not one");
+  await accept.click();
+  await page.locator(".sw-tabs").getByRole("button",{name:"NPC画像",exact:true}).click();
+  if(await page.locator(".sw-character").count()!==2) throw Error("NPC candidates were not adopted");
+  await page.locator(".sw-tabs").getByRole("button",{name:"世界框架",exact:true}).click();
+  const theme=page.locator("#fact-themes").locator("..");
+  await theme.getByRole("button",{name:"AI建议",exact:true}).click();
+  await theme.getByLabel("局部要求").fill("突出个人选择，不要救世主题");
+  await theme.getByRole("button",{name:"请求建议",exact:true}).click();
+  await page.locator(".sw-candidate").getByText("离线主题建议",{exact:true}).waitFor();
+  await page.locator("#fact-title").fill("用户后来确定的标题"); await page.locator("#fact-title").blur();
+  if(!await accept.isEnabled()) throw Error("Unrelated title edit blocked the field candidate");
+  await accept.click();
+  if(await page.locator("#fact-title").inputValue()!=="用户后来确定的标题") throw Error("User title overwritten");
+  if(await page.locator("#fact-summary").inputValue()!=="用户补充必须保留") throw Error("User summary lost");
+  if(await page.locator("#fact-themes").inputValue()!=="个人选择") throw Error("Field suggestion not adopted");
+  await theme.getByLabel("局部要求").fill("另一份主题建议");
+  await theme.getByRole("button",{name:"请求建议",exact:true}).click();
+  await page.locator(".sw-candidate").getByText("离线主题建议",{exact:true}).waitFor();
+  await page.locator("#fact-themes").fill("用户自己的主题"); await page.locator("#fact-themes").blur();
+  if(await accept.isEnabled()) throw Error("Same-field conflict was not blocked");
+  if(!(await page.locator(".sw-candidate").innerText()).includes("/world/themes")) throw Error("Conflict path not displayed");
+  await page.getByRole("button",{name:"保留原稿",exact:true}).click();
+  await page.getByRole("button",{name:"锁定：主题",exact:true}).click();
+  if(await theme.getByRole("button",{name:"AI建议",exact:true}).isEnabled()) throw Error("Locked field can request AI");
+  await page.getByRole("button",{name:"保存",exact:true}).click();
+  await page.reload();
+  await page.locator("#fact-title").waitFor();
+  if(await page.locator("#fact-title").inputValue()!=="用户后来确定的标题") throw Error("Snapshot restore failed");
+  for(const width of [390,768,1280,1440]){
+    await page.setViewportSize({width,height:1000});
+    await page.evaluate(()=>window.scrollTo(0,0));
+    if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)) throw Error("Horizontal overflow "+width);
+    await page.screenshot({path:"output/playwright/cocreation-"+width+".png"});
+  }
+  if(browserErrors.length) throw Error("Browser errors: "+browserErrors.join("; "));
+  const fieldRequests=requests.filter(r=>r.endpoint==="field");
+  if(fieldRequests.some(r=>r.body.context.story_idea!==idea||r.body.input===idea)) throw Error("Shared idea and local instruction were mixed");
+  return {mode:"synthetic-browser-no-paid-calls",requests:requests.map(r=>({endpoint:r.endpoint,field:r.body.field})),safeMerge:true,conflictProtected:true,autoNpcs:true,lockProtected:true,restore:true,viewports:[390,768,1280,1440],browserErrors};
+}

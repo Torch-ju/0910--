@@ -1,0 +1,8 @@
+async (page) => {
+  await page.evaluate(()=>localStorage.clear());
+  await page.reload();
+  const idea="西方魔幻。王历七十二年春，银岬港。二十年前封印风暴，现在封印减弱。只有两名核心人物：女法师艾琳、守港骑士洛安，均为NPC，初次相遇互不信任。主题是个人选择，基调克制而有希望。不增加具名人物，不预定未来剧情。请用简短字段建立世界框架、历史和开局。";
+  await page.locator("#story-input").fill(idea);
+  await page.getByRole("button",{name:"生成世界框架",exact:true}).click();
+  return {started:true,phase:"real-framework",autoNpcAfterUserAdoption:true};
+}

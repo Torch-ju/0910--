@@ -1,0 +1,12 @@
+async (page) => {
+  await page.evaluate(() => window.scrollTo(0,0));
+  const results=[];
+  for(const width of [390,768,1280,1440]){
+    await page.setViewportSize({width,height:900});
+    const layout=await page.evaluate(()=>({width:innerWidth,scrollWidth:document.documentElement.scrollWidth}));
+    if(layout.scrollWidth>width+1)throw new Error("Horizontal overflow at "+width+": "+layout.scrollWidth);
+    await page.screenshot({path:"output/playwright/viewport-"+width+".png",scale:"css"});
+    results.push(layout);
+  }
+  return {responsive:results};
+}

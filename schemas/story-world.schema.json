@@ -1,0 +1,410 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://shuzhongren.local/schemas/story-world.schema.json",
+  "title": "StoryWorld",
+  "type": "object",
+  "description": "世界框架和初始时间线的唯一实例契约。",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "document_type",
+    "story_id",
+    "revision",
+    "created_at",
+    "updated_at",
+    "title",
+    "logline",
+    "summary",
+    "genre",
+    "themes",
+    "tone",
+    "setting",
+    "organizations",
+    "core_conflict",
+    "initial_outline",
+    "timeline",
+    "hard_constraints",
+    "prohibited_content",
+    "open_questions",
+    "change_log"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0",
+      "type": "string",
+      "description": "数据契约版本。"
+    },
+    "document_type": {
+      "const": "story_world",
+      "type": "string",
+      "description": "世界文档类型。"
+    },
+    "story_id": {
+      "$ref": "common.schema.json#/$defs/stableId",
+      "description": "同一故事在世界和 NPC 文档中的共同 ID。"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "文档修订号。"
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp",
+      "description": "文档创建的系统时间。"
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/timestamp",
+      "description": "最后更新的系统时间。"
+    },
+    "title": {
+      "$ref": "common.schema.json#/$defs/factString",
+      "description": "故事名称。"
+    },
+    "logline": {
+      "$ref": "common.schema.json#/$defs/factString",
+      "description": "一句话核心方向。"
+    },
+    "summary": {
+      "$ref": "common.schema.json#/$defs/factString",
+      "description": "目前共同形成的世界和故事方向摘要。"
+    },
+    "genre": {
+      "$ref": "common.schema.json#/$defs/factStringArray",
+      "description": "故事类型，由场景引导但服从用户设定。"
+    },
+    "themes": {
+      "$ref": "common.schema.json#/$defs/factStringArray",
+      "description": "故事主题。"
+    },
+    "tone": {
+      "$ref": "common.schema.json#/$defs/factStringArray",
+      "description": "叙事气质与情绪。"
+    },
+    "setting": {
+      "type": "object",
+      "description": "世界环境。",
+      "additionalProperties": false,
+      "required": [
+        "era",
+        "geography",
+        "locations",
+        "society",
+        "technology_or_power_system",
+        "world_rules"
+      ],
+      "properties": {
+        "era": {
+          "$ref": "common.schema.json#/$defs/factString",
+          "description": "时代或虚构纪年背景。"
+        },
+        "geography": {
+          "$ref": "common.schema.json#/$defs/factString",
+          "description": "整体空间与地理。"
+        },
+        "locations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/location"
+          },
+          "description": "重要地点。"
+        },
+        "society": {
+          "$ref": "common.schema.json#/$defs/factString",
+          "description": "社会结构、制度和生活方式。"
+        },
+        "technology_or_power_system": {
+          "$ref": "common.schema.json#/$defs/factString",
+          "description": "魔法、武学、技术或明确不存在的特殊力量。"
+        },
+        "world_rules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/worldRule"
+          },
+          "description": "世界运行规则，供后续叙事遵守。"
+        }
+      }
+    },
+    "organizations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/organization"
+      },
+      "description": "重要组织、门派、势力或群体。"
+    },
+    "core_conflict": {
+      "type": "object",
+      "description": "推动故事的冲突框架。",
+      "additionalProperties": false,
+      "required": [
+        "description",
+        "forces",
+        "stakes",
+        "open_issues"
+      ],
+      "properties": {
+        "description": {
+          "$ref": "common.schema.json#/$defs/factString",
+          "description": "核心矛盾。"
+        },
+        "forces": {
+          "$ref": "common.schema.json#/$defs/factStringArray",
+          "description": "冲突参与力量。"
+        },
+        "stakes": {
+          "$ref": "common.schema.json#/$defs/factString",
+          "description": "成败后果。"
+        },
+        "open_issues": {
+          "$ref": "common.schema.json#/$defs/factStringArray",
+          "description": "尚未决定的问题。"
+        }
+      }
+    },
+    "initial_outline": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/outlineBeat"
+      },
+      "description": "未来方向建议，不能当作已经发生的历史。"
+    },
+    "timeline": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/timelineEvent"
+      },
+      "description": "唯一的世界历史与开局时间线。"
+    },
+    "hard_constraints": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/$defs/constraint",
+        "description": "不可忽略的要求。"
+      },
+      "description": "用户与共创过程确定的约束。"
+    },
+    "prohibited_content": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/$defs/constraint",
+        "description": "不希望出现的内容。"
+      },
+      "description": "内容边界。"
+    },
+    "open_questions": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/$defs/openQuestion",
+        "description": "世界的未决问题。"
+      },
+      "description": "待用户澄清事项。"
+    },
+    "change_log": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/$defs/changeLogEntry",
+        "description": "世界变更。"
+      },
+      "description": "应用维护的修订轨迹。"
+    }
+  },
+  "$defs": {
+    "location": {
+      "type": "object",
+      "description": "地点对象，供框架与 NPC Agent 共同引用。",
+      "additionalProperties": false,
+      "required": [
+        "location_id",
+        "name",
+        "description",
+        "importance"
+      ],
+      "properties": {
+        "location_id": {
+          "$ref": "common.schema.json#/$defs/stableId",
+          "description": "地点稳定 ID。"
+        },
+        "name": {
+          "$ref": "common.schema.json#/$defs/factString",
+          "description": "地点名称，可由用户或 AI 提议。"
+        },
+        "description": {
+          "$ref": "common.schema.json#/$defs/factString",
+          "description": "地点的背景与叙事作用。"
+        },
+        "importance": {
+          "$ref": "common.schema.json#/$defs/factString",
+          "description": "地点对当前故事的影响。"
+        }
+      }
+    },
+    "worldRule": {
+      "type": "object",
+      "description": "世界规则对象，供框架与 NPC Agent 共同引用。",
+      "additionalProperties": false,
+      "required": [
+        "rule_id",
+        "name",
+        "description",
+        "importance"
+      ],
+      "properties": {
+        "rule_id": {
+          "$ref": "common.schema.json#/$defs/stableId",
+          "description": "世界规则稳定 ID。"
+        },
+        "name": {
+          "$ref": "common.schema.json#/$defs/factString",
+          "description": "世界规则名称，可由用户或 AI 提议。"
+        },
+        "description": {
+          "$ref": "common.schema.json#/$defs/factString",
+          "description": "世界规则的背景与叙事作用。"
+        },
+        "importance": {
+          "$ref": "common.schema.json#/$defs/factString",
+          "description": "世界规则对当前故事的影响。"
+        }
+      }
+    },
+    "organization": {
+      "type": "object",
+      "description": "组织对象，供框架与 NPC Agent 共同引用。",
+      "additionalProperties": false,
+      "required": [
+        "organization_id",
+        "name",
+        "description",
+        "importance"
+      ],
+      "properties": {
+        "organization_id": {
+          "$ref": "common.schema.json#/$defs/stableId",
+          "description": "组织稳定 ID。"
+        },
+        "name": {
+          "$ref": "common.schema.json#/$defs/factString",
+          "description": "组织名称，可由用户或 AI 提议。"
+        },
+        "description": {
+          "$ref": "common.schema.json#/$defs/factString",
+          "description": "组织的背景与叙事作用。"
+        },
+        "importance": {
+          "$ref": "common.schema.json#/$defs/factString",
+          "description": "组织对当前故事的影响。"
+        }
+      }
+    },
+    "outlineBeat": {
+      "type": "object",
+      "description": "未来创作方向节点。",
+      "additionalProperties": false,
+      "required": [
+        "beat_id",
+        "order",
+        "title",
+        "description",
+        "purpose"
+      ],
+      "properties": {
+        "beat_id": {
+          "$ref": "common.schema.json#/$defs/stableId",
+          "description": "大纲节点 ID。"
+        },
+        "order": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "大纲顺序。"
+        },
+        "title": {
+          "$ref": "common.schema.json#/$defs/factString",
+          "description": "节点名称。"
+        },
+        "description": {
+          "$ref": "common.schema.json#/$defs/factString",
+          "description": "拟议的发展方向。"
+        },
+        "purpose": {
+          "$ref": "common.schema.json#/$defs/factString",
+          "description": "节点的叙事作用。"
+        }
+      }
+    },
+    "timelineEvent": {
+      "type": "object",
+      "description": "初始世界时间线事件；只描述历史与开局。",
+      "additionalProperties": false,
+      "required": [
+        "event_id",
+        "name",
+        "time_label",
+        "order",
+        "period",
+        "description",
+        "related_character_ids",
+        "related_location_ids",
+        "after_event_ids"
+      ],
+      "properties": {
+        "event_id": {
+          "$ref": "common.schema.json#/$defs/stableId",
+          "description": "历史事件 ID，供 NPC 前史引用。"
+        },
+        "name": {
+          "$ref": "common.schema.json#/$defs/factString",
+          "description": "事件标题。"
+        },
+        "time_label": {
+          "$ref": "common.schema.json#/$defs/factString",
+          "description": "虚构纪年、相对时间或待定时间，不转换为现实日期。"
+        },
+        "order": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "已知排序序号；不能判断时为 null。"
+        },
+        "period": {
+          "type": "string",
+          "description": "事件处于历史或故事开局；未来事件不得写入。",
+          "enum": [
+            "history",
+            "opening"
+          ]
+        },
+        "description": {
+          "$ref": "common.schema.json#/$defs/factString",
+          "description": "世界历史、人物前史或开局事件的具体内容。"
+        },
+        "related_character_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "common.schema.json#/$defs/stableId",
+            "description": "关联 NPC ID。"
+          },
+          "description": "须引用已有角色；未确定前不猜 ID。"
+        },
+        "related_location_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "common.schema.json#/$defs/stableId",
+            "description": "关联地点 ID。"
+          },
+          "description": "须引用世界中的地点。"
+        },
+        "after_event_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "common.schema.json#/$defs/stableId",
+            "description": "先于本事件发生的事件 ID。"
+          },
+          "description": "明确的先后依赖；不允许环。"
+        }
+      },
+      "title": "TimelineEvent"
+    }
+  }
+}
