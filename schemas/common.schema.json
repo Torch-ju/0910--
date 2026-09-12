@@ -1,0 +1,286 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://shuzhongren.local/schemas/common.schema.json",
+  "title": "StoryCommon",
+  "description": "书中人共同创作的来源、状态、约束和变更记录。",
+  "$defs": {
+    "stableId": {
+      "type": "string",
+      "description": "应用分配的稳定标识；名称修改不改变 ID。",
+      "pattern": "^[a-z][a-z0-9_-]{2,95}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "description": "带时区的 ISO 8601 系统时间戳。",
+      "format": "date-time"
+    },
+    "factString": {
+      "title": "FactString",
+      "type": "object",
+      "description": "带来源、确认与锁定信息的文字事实。",
+      "additionalProperties": false,
+      "required": [
+        "value",
+        "source",
+        "status",
+        "locked",
+        "evidence",
+        "updated_at"
+      ],
+      "properties": {
+        "value": {
+          "type": "string",
+          "description": "业务文本；草稿允许空字符串，确认前由业务规则检查。",
+          "maxLength": 24000
+        },
+        "source": {
+          "type": "string",
+          "description": "当前值形成方式。用户接受 AI 建议不改变来源；用户改写后为 user_edited。",
+          "enum": [
+            "user_explicit",
+            "user_edited",
+            "ai_inferred",
+            "ai_suggestion"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "description": "共同创作确认状态；未经用户操作不能成为 confirmed。",
+          "enum": [
+            "draft",
+            "pending_confirmation",
+            "confirmed",
+            "rejected"
+          ]
+        },
+        "locked": {
+          "type": "boolean",
+          "description": "用户锁定标记；模型不得自行改动。"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "description": "用户原话或明确标注的摘要。",
+            "maxLength": 12000
+          },
+          "description": "内容依据；空数组表示没有直接引用。"
+        },
+        "updated_at": {
+          "$ref": "#/$defs/timestamp",
+          "description": "该事实最后更新的系统时间，不是虚构世界时间。"
+        }
+      }
+    },
+    "factStringArray": {
+      "title": "FactStringArray",
+      "type": "object",
+      "description": "带元数据的文本列表。",
+      "additionalProperties": false,
+      "required": [
+        "value",
+        "source",
+        "status",
+        "locked",
+        "evidence",
+        "updated_at"
+      ],
+      "properties": {
+        "value": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "description": "单项偏好或特征。",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "description": "同一来源和确认状态的一组文本；允许空数组。"
+        },
+        "source": {
+          "type": "string",
+          "description": "当前值形成方式。用户接受 AI 建议不改变来源；用户改写后为 user_edited。",
+          "enum": [
+            "user_explicit",
+            "user_edited",
+            "ai_inferred",
+            "ai_suggestion"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "description": "共同创作确认状态；未经用户操作不能成为 confirmed。",
+          "enum": [
+            "draft",
+            "pending_confirmation",
+            "confirmed",
+            "rejected"
+          ]
+        },
+        "locked": {
+          "type": "boolean",
+          "description": "用户锁定标记；模型不得自行改动。"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "description": "用户原话或明确标注的摘要。",
+            "maxLength": 12000
+          },
+          "description": "内容依据；空数组表示没有直接引用。"
+        },
+        "updated_at": {
+          "$ref": "#/$defs/timestamp",
+          "description": "该事实最后更新的系统时间，不是虚构世界时间。"
+        }
+      }
+    },
+    "constraint": {
+      "type": "object",
+      "description": "故事或 NPC 约束。",
+      "additionalProperties": false,
+      "required": [
+        "constraint_id",
+        "text",
+        "category"
+      ],
+      "properties": {
+        "constraint_id": {
+          "$ref": "#/$defs/stableId",
+          "description": "约束 ID。"
+        },
+        "text": {
+          "$ref": "#/$defs/factString",
+          "description": "要遵守或避免的具体内容。"
+        },
+        "category": {
+          "type": "string",
+          "description": "约束类别。",
+          "enum": [
+            "must_keep",
+            "avoid",
+            "style",
+            "content_safety"
+          ]
+        }
+      }
+    },
+    "openQuestion": {
+      "type": "object",
+      "description": "未决问题；非关键问题允许暂留。",
+      "additionalProperties": false,
+      "required": [
+        "question_id",
+        "question",
+        "importance",
+        "blocking",
+        "status",
+        "answer"
+      ],
+      "properties": {
+        "question_id": {
+          "$ref": "#/$defs/stableId",
+          "description": "问题 ID。"
+        },
+        "question": {
+          "type": "string",
+          "description": "需要用户澄清的内容。",
+          "minLength": 1
+        },
+        "importance": {
+          "type": "string",
+          "description": "影响程度。",
+          "enum": [
+            "high",
+            "medium",
+            "low"
+          ]
+        },
+        "blocking": {
+          "type": "boolean",
+          "description": "是否影响继续生成或正式确认。"
+        },
+        "status": {
+          "type": "string",
+          "description": "问题解决状态。",
+          "enum": [
+            "open",
+            "resolved",
+            "dismissed"
+          ]
+        },
+        "answer": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/factString"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "用户回答；未回答为 null。"
+        }
+      }
+    },
+    "changeLogEntry": {
+      "type": "object",
+      "description": "业务变更轨迹；不保存密钥。",
+      "additionalProperties": false,
+      "required": [
+        "change_id",
+        "changed_at",
+        "actor",
+        "summary",
+        "changed_paths",
+        "operation_id",
+        "previous_revision",
+        "new_revision"
+      ],
+      "properties": {
+        "change_id": {
+          "$ref": "#/$defs/stableId",
+          "description": "变更 ID。"
+        },
+        "changed_at": {
+          "$ref": "#/$defs/timestamp",
+          "description": "系统记录时间。"
+        },
+        "actor": {
+          "type": "string",
+          "description": "执行变更的主体。",
+          "enum": [
+            "user",
+            "ai",
+            "system"
+          ]
+        },
+        "summary": {
+          "type": "string",
+          "description": "变更原因与结果。"
+        },
+        "changed_paths": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "description": "JSON Pointer 路径。"
+          },
+          "description": "受影响字段。"
+        },
+        "operation_id": {
+          "$ref": "#/$defs/stableId",
+          "description": "本次操作 ID；用于重复操作识别。"
+        },
+        "previous_revision": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "变更前修订号。"
+        },
+        "new_revision": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "变更后修订号。"
+        }
+      }
+    }
+  }
+}

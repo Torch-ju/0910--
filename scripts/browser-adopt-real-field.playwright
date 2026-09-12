@@ -1,0 +1,14 @@
+async (page) => {
+  await page.locator("#fact-title").fill("字段真实联调：保留用户标题");
+  await page.locator("#fact-title").blur();
+  const accept=page.getByRole("button",{name:"接受改动",exact:true});
+  if(!await accept.isEnabled()) throw Error("Unrelated edit incorrectly blocked real field candidate");
+  await accept.click();
+  await page.getByRole("button",{name:"保存",exact:true}).click();
+  await page.reload();
+  await page.waitForFunction(()=>document.querySelector("#fact-title")?.value==="字段真实联调：保留用户标题");
+  const result=await page.evaluate(()=>{const d=JSON.parse(localStorage.getItem("shuzhongren.workspace.v1"));return {title:d.current.world.title.value,themes:d.current.world.themes,revision:d.current.snapshot_revision,idea:d.current.input,candidate:d.candidate};});
+  if(!Array.isArray(result.themes.value)||result.themes.value.length!==2||result.candidate!==null)throw Error("Real field adoption or restore failed");
+  await page.screenshot({path:"output/playwright/real-field-adopted.png"});
+  return {phase:"real-field-adopted",safeMerge:true,restored:true,...result};
+}

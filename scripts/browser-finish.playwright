@@ -1,0 +1,32 @@
+async (page) => {
+  await page.getByRole("button",{name:"世界时间线",exact:true}).click();
+  await page.locator(".sw-timeline__head").filter({hasText:"封山"}).click();
+  const time=page.getByRole("textbox",{name:/时间标记/});
+  await time.fill("开局四年前");await time.press("Tab");
+  await page.waitForFunction(()=>JSON.parse(localStorage.getItem("shuzhongren.workspace.v1")).current.world.timeline[0].time_label.value==="开局四年前");
+  const related=page.locator(".sw-meta-grid select[multiple]").first();
+  await related.selectOption([]);
+  await related.selectOption("npc_master");
+  await page.getByRole("button",{name:"确认当前设定",exact:true}).click();
+  await page.waitForFunction(()=>JSON.parse(localStorage.getItem("shuzhongren.workspace.v1")).current.world.title.status==="confirmed");
+  const worldDownload=page.waitForEvent("download");await page.getByRole("button",{name:"导出世界 JSON",exact:true}).click();const w=await worldDownload;await w.saveAs("output/playwright/browser-world.json");
+  const npcDownload=page.waitForEvent("download");await page.getByRole("button",{name:"导出人物 JSON",exact:true}).click();const n=await npcDownload;await n.saveAs("output/playwright/browser-characters.json");
+  await page.evaluate(()=>{window.__storyOriginalSetItem=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){if(key==="shuzhongren.workspace.v1")throw new DOMException("Synthetic quota failure","QuotaExceededError");return window.__storyOriginalSetItem.call(this,key,value);};});
+  await page.getByRole("textbox",{name:"故事想法",exact:true}).fill("保存失败时也必须保留这段合成测试输入。");
+  await page.getByRole("button",{name:"保存",exact:true}).click();
+  await page.getByRole("alert").filter({hasText:"本地保存失败"}).waitFor();
+  if(await page.getByRole("textbox",{name:"故事想法",exact:true}).inputValue()!=="保存失败时也必须保留这段合成测试输入。")throw new Error("Input lost during save failure");
+  await page.evaluate(()=>{Storage.prototype.setItem=window.__storyOriginalSetItem;});
+  await page.getByRole("button",{name:"保存",exact:true}).click();
+  await page.waitForFunction(()=>JSON.parse(localStorage.getItem("shuzhongren.workspace.v1")).current.input==="保存失败时也必须保留这段合成测试输入。");
+  if(await page.getByRole("alert").filter({hasText:"本地保存失败"}).count())throw new Error("Recovered save error not cleared");
+  await page.getByRole("button",{name:"世界框架",exact:true}).click();
+  const widths=[];
+  for(const width of [390,768,1280,1440]){
+    await page.setViewportSize({width,height:900});await page.evaluate(()=>window.scrollTo(0,0));
+    const layout=await page.evaluate(()=>({width:innerWidth,scrollWidth:document.documentElement.scrollWidth}));
+    if(layout.scrollWidth>width+1)throw new Error("Overflow at "+width);
+    await page.screenshot({path:"output/playwright/validated-"+width+".png",scale:"css"});widths.push(layout);
+  }
+  return {source:"synthetic",checks:["fictional time edit","complete-ID relationship select","confirmation","two JSON downloads","save failure preserves input","successful retry clears error"],downloads:[w.suggestedFilename(),n.suggestedFilename()],widths};
+}

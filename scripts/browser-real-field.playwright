@@ -1,0 +1,9 @@
+async (page) => {
+  await page.evaluate(()=>localStorage.clear()); await page.reload();
+  await page.locator("#story-input").fill("独立字段联调：西方魔幻，银岬港的女法师艾琳与守港骑士洛安面对风暴封印衰弱。希望关注个人选择，不预定结局。");
+  const field=page.locator("#fact-themes").locator("..");
+  await field.getByRole("button",{name:"AI建议",exact:true}).click();
+  await field.getByLabel("局部要求").fill("给出两个简短故事主题，突出个人选择，不要拯救世界口号。");
+  await field.getByRole("button",{name:"请求建议",exact:true}).click();
+  return {started:true,phase:"real-field",target:"/themes",doesNotReplaceFailedFramework:true};
+}
