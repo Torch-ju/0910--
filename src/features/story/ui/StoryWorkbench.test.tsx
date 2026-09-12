@@ -32,7 +32,7 @@ describe("StoryWorkbench", () => {
   it("switches to the deliberately empty NPC workspace", () => {
     render(<StoryWorkbench model={model()} actions={actions()} />);
     fireEvent.click(screen.getByRole("button", { name: "NPC画像" }));
-    expect(screen.getByText("人物尚未出现。先写下世界，或亲自添入第一个名字。")).toBeTruthy();
+    expect(screen.getByText("请先生成世界框架，再生成 NPC 画像；也可以手动添加人物。")).toBeTruthy();
   });
 
   it("removes the decorative opening section and exposes clear data", () => {
@@ -55,7 +55,37 @@ describe("StoryWorkbench", () => {
   it("offers an explicit new-billed retry only when the hook permits it", () => {
     const current = model(); current.canStartNewAttempt = true; const handler = actions();
     render(<StoryWorkbench model={current} actions={handler} />);
-    fireEvent.click(screen.getByRole("button", { name: "重新发起（可能计费）" }));
+    fireEvent.click(screen.getByRole("button", { name: "继续生成" }));
     expect(handler.startNewAttempt).toHaveBeenCalledOnce();
   });
+});
+
+it("explains blocking world questions and lets the user answer within NPC profiles", () => {
+  const current = model(), handler = actions(); current.snapshot.world.title = fact("侠之大者");
+  current.snapshot.world.open_questions = [{ question_id: "origin", question: "主角从哪里出发？", importance: "high", blocking: true, status: "open", answer: null }];
+  render(<StoryWorkbench model={current} actions={handler} />);
+  fireEvent.click(screen.getByRole("button", { name: "NPC画像" }));
+  expect(screen.getByText(/有 1 个待确认问题，AI/)).toBeTruthy();
+  expect((screen.getByRole("button", { name: "生成 NPC 画像" }) as HTMLButtonElement).disabled).toBe(false);
+  fireEvent.change(screen.getByLabelText("主角从哪里出发？"), { target: { value: "洛阳" } });
+  fireEvent.click(screen.getByRole("button", { name: "保存回答" }));
+  expect(handler.answerQuestion).toHaveBeenCalledWith("主角从哪里出发？", "洛阳");
+  cleanup();
+});
+it("offers NPC generation when the world is ready", () => {
+  const current = model(), handler = actions(); current.snapshot.world.title = fact("侠之大者");
+  render(<StoryWorkbench model={current} actions={handler} />);
+  fireEvent.click(screen.getByRole("button", { name: "NPC画像" }));
+  fireEvent.click(screen.getByRole("button", { name: "生成 NPC 画像" }));
+  expect(handler.generateNpcs).toHaveBeenCalledOnce();
+  cleanup();
+});
+
+it("never renders the adoption panel even while a saved candidate is being restored", () => {
+  const state=model();
+  state.candidate={operation_id:"op_saved",base_revision:1,fingerprint:"saved",world:state.snapshot.world,characters:state.snapshot.characters,recognition:null,timeline_suggestions:[],summary:"已生成",warnings:[]};
+  render(<StoryWorkbench model={state} actions={actions()} />);
+  expect(screen.queryByText("一份待确认的改动")).toBeNull();
+  expect(screen.queryByRole("button",{name:"接受改动"})).toBeNull();
+  expect(screen.queryByRole("button",{name:"保留原稿"})).toBeNull();
 });

@@ -1,3 +1,4 @@
+import { readCompletion, StreamProgressError } from "./completion-stream";
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
@@ -76,7 +77,7 @@ async function exclusively<T>(work: () => Promise<T>): Promise<T> {
 }
 
 export class RequestLedger {
-  constructor(private readonly path = process.env.MODEL_LEDGER_PATH ?? resolve(process.cwd(), "runtime", "model-requests.json")) {}
+  constructor(readonly path = process.env.MODEL_LEDGER_PATH ?? resolve(process.cwd(), "runtime", "model-requests.json")) {}
   private async load(): Promise<Ledger> {
     try {
       const value = JSON.parse(await readFile(this.path, "utf8")) as Ledger;
@@ -94,7 +95,18 @@ export class RequestLedger {
     await rename(temp, this.path);
   }
   async hasCompleted(operationId: string): Promise<boolean> {
-    return exclusively(async () => (await this.load()).receipts[operationId]?.state === "success");
+    return exclusively(async () => { const receipts = (await this.load()).receipts; return [operationId, automaticOperationId(operationId,1), automaticOperationId(operationId,2)].some(id => receipts[id]?.state === "success"); });
+  }
+  async revalidate<T>(operationId:string, fingerprint:string, decode:(value:unknown)=>T):Promise<{replay?:T}> {
+    return exclusively(async()=>{
+      const ledger=await this.load(), receipt=ledger.receipts[operationId];
+      if(!receipt || receipt.fingerprint!==fingerprint || receipt.state!=="failed" || receipt.failure?.code!=="schema_error")return {};
+      const raw=receipt.validationFailures?.at(-1)?.output;if(!raw)return {};
+      let result:T;try {result=decode(parseModelJson(raw));}catch{return {};}
+      receipt.state="success";receipt.result=result;
+      // Preserve original failed attempts and validation evidence for audit.
+      await this.save(ledger);return {replay:result};
+    });
   }
   async recordValidation(operationId: string, issues: unknown, output: string) {
     await exclusively(async () => {
@@ -178,8 +190,8 @@ export function parseModelJson(content: string): unknown {
 }
 
 export class ChatCompletionsClient {
-  constructor(private readonly config: ModelConfig, private readonly fetcher: FetchLike = fetch, private readonly maxTokens = DEFAULT_OUTPUT_TOKENS) {}
-  async complete(system: string, user: string): Promise<ModelReply> {
+  constructor(private readonly config: ModelConfig, private readonly fetcher: FetchLike = fetch, private readonly maxTokens: number | null = DEFAULT_OUTPUT_TOKENS, private readonly jsonMode = false) {}
+  async complete(system: string, user: string, progress?: (text:string)=>Promise<void>): Promise<ModelReply> {
     const controller = new AbortController();
     const startedAt = new Date().toISOString();
     const startedMs = Date.now();
@@ -190,11 +202,11 @@ export class ChatCompletionsClient {
       const response = await this.fetcher(this.config.baseUrl, {
         method: "POST",
         headers: { "content-type": "application/json", authorization: `Bearer ${this.config.apiKey}` },
-        body: JSON.stringify({ model: this.config.model, messages: [{ role: "system", content: system }, { role: "user", content: user }], temperature: 0.4, max_tokens: this.maxTokens }),
+        body: JSON.stringify({ model: this.config.model, messages: [{ role: "system", content: system }, { role: "user", content: user }], temperature: 0.4, ...(this.jsonMode ? {response_format:{type:"json_object"}} : {}), ...(progress && process.env.LLM_STREAM !== "false" ? {stream:true} : {}), ...(this.maxTokens === null ? {} : { max_tokens: this.maxTokens }) }),
         signal: controller.signal,
       });
       if (!response.ok) throw new StoryProviderError(appError("provider_error", "模型服务暂时不可用。", response.status >= 500), response.status === 429 ? 429 : 502, telemetry(response.status));
-      const payload = await response.json() as { choices?: { message?: { content?: string }; finish_reason?: string }[]; usage?: { prompt_tokens?: unknown; completion_tokens?: unknown; total_tokens?: unknown } };
+      const payload = await readCompletion(response,progress);
       const choice = payload.choices?.[0];
       if (!choice?.message?.content) throw new StoryProviderError(appError("provider_error", "模型服务未返回文本内容。"), 502, telemetry(response.status));
       const content: string = choice.message.content;
@@ -203,9 +215,12 @@ export class ChatCompletionsClient {
       const usage = { promptTokens: count(payload.usage?.prompt_tokens), completionTokens: count(payload.usage?.completion_tokens), totalTokens: count(payload.usage?.total_tokens) };
       return { content, finishReason: choice.finish_reason ?? null, telemetry: telemetry(response.status, usage) };
     } catch (error) {
+      if (error instanceof StreamProgressError) throw new StoryProviderError(appError("preview_save_failed", error.message), 503, telemetry());
       if (error instanceof StoryProviderError) throw error;
       if ((error as Error).name === "AbortError") throw new StoryProviderError(appError("request_timeout", `模型请求在 ${Math.ceil(timeoutMs / 1000)} 秒后超时，结果状态不可确定。`, true), 504, telemetry());
       throw new StoryProviderError(appError("provider_error", "模型请求失败，结果状态不可确定。", true), 502, telemetry());
     } finally { clearTimeout(timeout); }
   }
 }
+
+export const automaticOperationId = (id: string, retry: number) => "op_" + createHash("sha256").update(`${id}:automatic-retry:${retry}`).digest("hex").slice(0,48);

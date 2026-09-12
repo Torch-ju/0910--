@@ -1,3 +1,5 @@
+import { continuationId } from "./npc-dialogue";
+import { INTERACTIVE_PROSE_SCHEMA, validateDialogue } from "./dialogue";
 import { createHash } from "node:crypto";
 import { readdir } from "node:fs/promises";
 import { z } from "zod";
@@ -42,7 +44,7 @@ export class StoryManager {
       if (command.action === "abandon") {
         const run = session.runs.find(run => run.operation_id === command.run_id);
         if (!run || run.status === "succeeded") throw new OrchestrationError("invalid_run", "已完成轮次不能放弃。", 400);
-        run.status = "abandoned"; detail = { run_id: run.operation_id };
+        run.status = "abandoned"; const conversation=session.conversations?.find(c=>c.run_id===run.operation_id);if(conversation)conversation.status="abandoned"; detail = { run_id: run.operation_id };
       } else if (command.action === "close_chapter") {
         const number = session.chapters.length + 1;
         const turns = session.turns.filter(turn => turn.chapter === number);
@@ -95,10 +97,15 @@ export class StoryManager {
     for (const [index, action] of (session.memory_actions ?? []).entries()) {
       if (action.after_turn > session.turns.length || (index > 0 && action.after_turn < session.memory_actions![index - 1].after_turn)) throw new OrchestrationError("invalid_backup", "记忆修正顺序无效。", 400);
     }
+    for(const conversation of session.conversations ?? []){
+      if(!session.runs.some(r=>r.operation_id===conversation.run_id) || conversation.id!==conversation.run_id || conversation.continuation_id!==continuationId(conversation.id))throw new OrchestrationError("invalid_backup","对话引用无效。",400);
+    }
     for (const [index, turn] of session.turns.entries()) {
       assertId(turn.id); if (seen.has(turn.id)) throw new OrchestrationError("invalid_backup", "轮次 ID 重复。", 400); seen.add(turn.id);
       if (turn.chapter > session.chapters.length + 1) throw new OrchestrationError("invalid_backup", "正文引用不存在的章节。", 400);
-      checked(turn.prose, PROSE_SCHEMA);
+      checked(turn.prose, Object.hasOwn(turn.prose,"dialogue") ? INTERACTIVE_PROSE_SCHEMA : PROSE_SCHEMA);
+      if(Object.hasOwn(turn.prose,"dialogue")) validateDialogue(turn.prose,session,turn.reply_to ? turn.input : undefined);
+      if(turn.reply_to && (session.turns[index-1]?.id!==turn.reply_to || !session.turns[index-1]?.prose.dialogue))throw new OrchestrationError("invalid_backup","对话回应的来源轮次不匹配。",400);
       const entry = session.memory_journal[index];
       if (entry.input.storyId !== storyId || entry.input.turnId !== turn.id || entry.input.narrative.text !== turn.prose.content) throw new OrchestrationError("invalid_backup", "正文与记忆日志不匹配。", 400);
       const hints = new Set(entry.extraction.mentions.flatMap(m => m.characterIdHint ? [m.characterIdHint] : []));
@@ -113,7 +120,16 @@ export class StoryManager {
     for (const run of session.runs) {
       assertId(run.operation_id);
       if ((run.status === "succeeded") !== session.turns.some(turn => turn.id === run.operation_id)) throw new OrchestrationError("invalid_backup", "已完成回执与正文不匹配。", 400);
-      if (run.status !== "succeeded" && run.status !== "abandoned") { run.status = "blocked"; run.steps = {}; }
+      if (run.status !== "succeeded" && run.status !== "abandoned") {
+        const conversation=session.conversations?.find(c=>c.run_id===run.operation_id);
+        if(conversation && ["active","ready"].includes(conversation.status)){
+          if(run.pipeline!=="dialogue_v2" || conversation.continuation_id!==continuationId(run.operation_id) || conversation.id!==run.operation_id || run.steps.transcription?.status!=="done")throw new OrchestrationError("invalid_backup","对话停点与正文不匹配。",400);
+          const prose=checked<import("./contracts").ProseOutput>(run.steps.transcription.result,INTERACTIVE_PROSE_SCHEMA);
+          validateDialogue(prose,session);
+          if(JSON.stringify(prose.dialogue)!==JSON.stringify(conversation.speaker))throw new OrchestrationError("invalid_backup","对话人物与停点不匹配。",400);
+          run.steps={transcription:run.steps.transcription};run.status=conversation.status==="active"?"waiting_dialogue":"blocked";
+        } else {run.status="blocked";run.steps={};}
+      }
     }
     for (const action of session.memory_actions ?? []) memoryCommandSchema.parse(action.command);
     delete session.memory_checkpoint;

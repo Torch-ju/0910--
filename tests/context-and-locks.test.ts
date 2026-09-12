@@ -10,12 +10,22 @@ afterEach(() => vi.unstubAllEnvs());
 describe("long history and lock ownership", () => {
   it("fits recent complete fragments within a character budget and keeps full history", async () => {
     const { main, command } = await fixture(); const session = await main.turn(command);
+    session.snapshot.operations.push({operation_id:"op_old", fingerprint:"x".repeat(100000),revision:1});
     session.turns = Array.from({ length: 100 }, (_, i) => ({ ...session.turns[0], id: "op_" + i, prose: { ...session.turns[0].prose, content: "长篇正文。".repeat(500) } }));
     const memory = await restoreMemory(session); vi.stubEnv("NARRATIVE_CONTEXT_CHARS", "18000");
     const context = await buildContext(session, "我继续询问沈砚。", memory.repository);
     expect(context.recent.length).toBeLessThan(100); expect(session.turns).toHaveLength(100);
     expect(context.recent.every(p => p.content.length === 2500)).toBe(true);
     vi.stubEnv("NARRATIVE_CONTEXT_CHARS", "bad"); await expect(buildContext(session, "问题", memory.repository)).rejects.toMatchObject({ code: "context_config" });
+  });
+  it("keeps essential creative data even when it exceeds the retrieval target", async () => {
+    const { main, command } = await fixture(); const session = await main.status(command.story_id);
+    session.snapshot.world.summary.value = "完整世界事实".repeat(12000);
+    const before = JSON.stringify(session.snapshot);
+    const memory = await restoreMemory(session); vi.stubEnv("NARRATIVE_CONTEXT_CHARS", "12000");
+    const context = await buildContext(session, "开始写作", memory.repository);
+    expect(context.recent).toEqual([]); expect(context.relevant).toEqual([]);
+    expect(JSON.stringify(session.snapshot)).toBe(before);
   });
   it("never reclaims a live owner or an unknown-owner lock", async () => {
     const { directory } = await fixture(); const lock = join(directory, "test.lock"); await mkdir(lock);

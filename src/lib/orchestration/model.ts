@@ -1,3 +1,5 @@
+import { fitNarrativeRequest } from "./request-budget";
+import { automaticRetry } from "@/lib/ai/automatic-retry";
 import Ajv2020 from "ajv/dist/2020";
 import type { AnySchema } from "ajv";
 import { ChatCompletionsClient, RequestLedger, StoryProviderError, fingerprintFor, parseModelJson, readModelConfig } from "@/lib/ai/model";
@@ -5,25 +7,30 @@ import { DATA_BOUNDARY } from "./prompts";
 
 export interface JsonAgentClient {
   hasCompleted?(operationId: string): Promise<boolean>;
-  generate(operationId: string, system: string, input: unknown, schema: AnySchema, refine?: (output: unknown) => void): Promise<unknown>;
+  generate(operationId: string, system: string, input: unknown, schema: AnySchema, refine?: (output: unknown) => void, progress?: (text:string)=>Promise<void>, options?: {jsonMode:boolean}): Promise<unknown>;
 }
 /** A shared paid-call ledger also covers new narrative agents and their single schema repair. */
 export class NarrativeModelClient implements JsonAgentClient {
   constructor(private readonly ledger = new RequestLedger()) {}
   hasCompleted(operationId: string) { return this.ledger.hasCompleted(operationId); }
-  async generate(operationId: string, system: string, input: unknown, schema: AnySchema, refine?: (output: unknown) => void): Promise<unknown> {
+  async generate(operationId: string, system: string, input: unknown, schema: AnySchema, refine?: (output: unknown) => void, progress?: (text:string)=>Promise<void>, options?: {jsonMode:boolean}): Promise<unknown> {
+    return automaticRetry(this.ledger.path,operationId,fingerprintFor(system,{input,schema,...(options?{options}:{})},1),id => this.generateOnce(id,system,input,schema,refine,progress,options));
+  }
+  private async generateOnce(operationId: string, system: string, input: unknown, schema: AnySchema, refine?: (output: unknown) => void, progress?: (text:string)=>Promise<void>, options?: {jsonMode:boolean}): Promise<unknown> {
     const validate = new Ajv2020({ allErrors: true, strict: false }).compile(schema);
     const config = readModelConfig();
-    const fingerprint = fingerprintFor(system, { input, schema }, 1);
+    const fingerprint = fingerprintFor(system, { input, schema, ...(options?{options}:{}) }, 1);
+    const prompt = `${system}\n${DATA_BOUNDARY}\n输出契约：${JSON.stringify(schema)}`;
+    let user = fitNarrativeRequest(prompt, input);
     const reserved = await this.ledger.reserve(operationId, fingerprint, config.model);
     if (reserved.replay !== undefined) return reserved.replay;
-    const client = new ChatCompletionsClient(config);
-    const prompt = `${system}\n${DATA_BOUNDARY}\n输出契约：${JSON.stringify(schema)}`;
-    let user = JSON.stringify(input);
+    const client = new ChatCompletionsClient(config, undefined, null, options?.jsonMode);
     try {
       for (let attempt = 0; attempt < 2; attempt++) {
+        if (attempt) user = fitNarrativeRequest(prompt, {repair_request:user});
         if (attempt) await this.ledger.reserve(operationId, fingerprint, config.model, "repair");
-        const reply = await client.complete(prompt, user);
+        await progress?.("");
+        const reply = await client.complete(prompt, user, progress);
         await this.ledger.settleAttempt(operationId, reply.telemetry);
         let output: unknown;
         let issue = "";

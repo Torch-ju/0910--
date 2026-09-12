@@ -1,9 +1,13 @@
+import { NpcDialogueAgent, continuationId, conversationProse, attributeConversationEvidence } from "./npc-dialogue";
+import { assertDialogueReply, pendingDialogue, playerRole, validateDialogue, INTERACTIVE_PROSE_SCHEMA } from "./dialogue";
+import { creativeSnapshot } from "./creative-context";
+import { prosePreview } from "@/lib/ai/completion-stream";
 import { createHash } from "node:crypto";
 import { createStoryAgents } from "@/lib/ai/agents";
 import { StoryProviderError } from "@/lib/ai/model";
 import type { AgentEndpoint, AgentRequest, StorySnapshot } from "@/lib/story/contracts";
 import { validateSnapshot } from "@/lib/story/storage";
-import { validatePair, walkFacts } from "@/lib/story/validation";
+import { validatePair } from "@/lib/story/validation";
 import type { ProcessTurnInput, ProcessTurnResult } from "../../../memory-agent/src/domain";
 import { NarrativeAgents, archiveChapter, checked, NARRATOR_SCHEMA, PROSE_SCHEMA, ROLE_SCHEMA, SUMMARY_SCHEMA } from "./agents";
 import { OrchestrationError, type NarratorOutput, type ProseOutput, type RoleOutput, type Run, type StepName, type StorySession, type SummaryOutput, type Turn, type TurnCommand } from "./contracts";
@@ -13,26 +17,12 @@ import { buildContext } from "./context";
 import { SessionStore, assertId } from "./store";
 
 const hash = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
-const hasBlockingQuestions = (snapshot: Pick<StorySnapshot, "world" | "characters" | "recognition">) =>
-  snapshot.recognition?.questions.some(question => question.blocking) ||
-  [...snapshot.world.open_questions, ...snapshot.characters.characters.flatMap(character => character.open_questions)].some(question => question.blocking && question.status === "open");
-
 export function requireReady(snapshot: StorySnapshot): void {
   if (!validateSnapshot(snapshot)) throw new OrchestrationError("invalid_snapshot", "快照结构、版本或引用不完整。", 400);
   if (!snapshot?.world || !snapshot?.characters || validatePair(snapshot.world, snapshot.characters).length) throw new OrchestrationError("invalid_snapshot", "世界与人物数据未通过校验。", 400);
   if (snapshot.snapshot_version !== 1 || !["western_fantasy", "eastern_wuxia"].includes(snapshot.preset_id) || typeof snapshot.input !== "string" || !Array.isArray(snapshot.messages) || (snapshot.recognition !== null && (!snapshot.recognition || !Array.isArray(snapshot.recognition.questions) || snapshot.recognition.questions.some(question => !question || typeof question.blocking !== "boolean")))) throw new OrchestrationError("invalid_snapshot", "快照元数据或识别反馈无效。", 400);
   if (snapshot.world.revision !== snapshot.characters.revision || snapshot.world.revision !== snapshot.snapshot_revision) throw new OrchestrationError("snapshot_revision_mismatch", "世界、人物与快照版本必须一致。", 400);
-  if (!snapshot.world.title.value.trim() || !snapshot.world.logline.value.trim() || !snapshot.characters.characters.length) throw new OrchestrationError("setup_required", "请先建立故事名称、故事方向和至少一个人物。");
-  if (!snapshot.world.timeline.some(event => event.period === "opening")) throw new OrchestrationError("opening_required", "请先建立故事开局时点。");
-  if (hasBlockingQuestions(snapshot)) {
-    const questions = [...(snapshot.recognition?.questions.filter(q => q.blocking).map(q => q.question) ?? []), ...[...snapshot.world.open_questions, ...snapshot.characters.characters.flatMap(c => c.open_questions)].filter(q => q.blocking && q.status === "open").map(q => q.question)];
-    throw new OrchestrationError("clarification_required", "请先回答：" + [...new Set(questions)].join("；"));
-  }
-  const pending: string[] = [];
-  for (const document of [snapshot.world, snapshot.characters]) walkFacts(document, (fact, path) => {
-    if ((typeof fact.value === "string" ? fact.value.trim().length : Array.isArray(fact.value) && fact.value.length) && !["confirmed", "rejected"].includes(fact.status)) pending.push(path + "：" + String(fact.value).slice(0, 60));
-  });
-  if (pending.length || snapshot.world.title.status !== "confirmed" || snapshot.world.logline.status !== "confirmed" || snapshot.characters.characters.some(character => character.name.status !== "confirmed")) throw new OrchestrationError("confirmation_required", "请确认以下设定后开始剧情：" + pending.slice(0, 12).join("；"));
+  if (!snapshot.input.trim() && !snapshot.world.logline.value.trim() && !snapshot.world.summary.value.trim()) throw new OrchestrationError("setup_required", "请先输入故事想法或提供现有故事设定。");
 }
 
 /** Main Agent owns routing, checkpoints and commits. Child agents cannot write the session. */
@@ -45,7 +35,6 @@ export class MainAgent {
   ) {}
 
   async settings(action: AgentEndpoint, request: AgentRequest) {
-    if (action === "npcs" && hasBlockingQuestions(request)) throw new OrchestrationError("clarification_required", "请先解决世界或人物的关键问题再生成 NPC。");
     return this.settingsFactory()[action](request);
   }
 
@@ -66,25 +55,29 @@ export class MainAgent {
 
   async status(storyId: string): Promise<StorySession> {
     const session = await this.store.load(storyId);
-    if (!session) throw new OrchestrationError("story_not_found", "请先初始化已确认的故事。", 404);
+    if (!session) throw new OrchestrationError("story_not_found", "请先开始一个故事。", 404);
     return session;
   }
 
   async turn(command: TurnCommand, options?: { shouldCancel: () => Promise<boolean> }): Promise<StorySession> {
-    assertId(command.story_id); assertId(command.operation_id);
+    if(!command.dialogue_action && (command.dialogue_id!==undefined || command.dialogue_revision!==undefined))throw new OrchestrationError("invalid_dialogue","对话命令缺少操作类型。",400);
+    if(command.dialogue_action)return new NpcDialogueAgent(this,this.agents).handle(command,options);
+    assertId(command.story_id); assertId(command.operation_id); if(command.reply_to !== undefined)assertId(command.reply_to);
     if (typeof command.input !== "string" || !command.input.trim() || command.input.length > 12000 || !Number.isInteger(command.base_revision) || command.base_revision < 1) throw new OrchestrationError("invalid_request", "本轮输入须为 1–12000 字且提供有效 base_revision。", 400);
     if ((command.close_chapter !== undefined && typeof command.close_chapter !== "boolean") || (command.retry_failed !== undefined && typeof command.retry_failed !== "boolean")) throw new OrchestrationError("invalid_request", "重试与归档选项须为布尔值。", 400);
     return this.store.exclusive(command.story_id, async () => {
       const session = await this.status(command.story_id);
-      const fingerprint = hash({ story_id: command.story_id, input: command.input, base_revision: command.base_revision, close_chapter: command.close_chapter ?? false });
+      const fingerprint = hash({ story_id: command.story_id, input: command.input, base_revision: command.base_revision, close_chapter: command.close_chapter ?? false, ...(command.reply_to ? {reply_to: command.reply_to} : {}) });
       let run = session.runs.find(item => item.operation_id === command.operation_id);
       if (run && run.fingerprint !== fingerprint) throw new OrchestrationError("idempotency_conflict", "同一操作 ID 不能承载不同内容。");
       if (run?.status === "succeeded") return session;
+      if(run?.status === "waiting_dialogue" && session.conversations?.find(c=>c.run_id===command.operation_id)?.status === "active")return session;
       if (run?.status === "abandoned") throw new OrchestrationError("run_abandoned", "此轮已放弃，请使用新的操作 ID。");
       if (session.revision !== command.base_revision) throw new OrchestrationError("revision_conflict", "故事版本已变化，请读取最新状态。");
       if (session.runs.some(item => item.operation_id !== command.operation_id && !["succeeded", "abandoned"].includes(item.status))) throw new OrchestrationError("unfinished_run", "请先恢复当前未完成轮次，不能跳过后继续写作。");
+      assertDialogueReply(session, command);
       if (!run) {
-        run = { operation_id: command.operation_id, fingerprint, base_revision: command.base_revision, input: command.input, close_chapter: command.close_chapter ?? false, status: "running", steps: {}, created_at: new Date().toISOString() };
+        run = { pipeline: "dialogue_v2", ...(command.reply_to ? {reply_to:command.reply_to} : {}), operation_id: command.operation_id, fingerprint, base_revision: command.base_revision, input: command.input, close_chapter: command.close_chapter ?? false, status: "running", steps: {}, created_at: new Date().toISOString() };
         session.runs.push(run);
         await this.store.save(session); // Persist original input before any paid request.
       }
@@ -94,21 +87,21 @@ export class MainAgent {
         const prior = activeRun.steps[name];
         if (prior?.status === "done") return prior.result as T;
         const previousId = "op_" + hash([command.story_id, command.operation_id, name, prior?.attempt]).slice(0, 48);
-        const receiptReady = prior?.status === "running" && !local && await this.agents.hasCompleted(previousId);
+        const receiptReady = !!prior && ["running", "failed"].includes(prior.status) && !local && await this.agents.hasCompleted(previousId);
         if (prior && !receiptReady && !command.retry_failed && !local) throw new OrchestrationError("explicit_retry_required", "该步骤失败或结果不明。明确设置 retry_failed=true 才会以新请求重试，可能产生重复费用。");
         const attempt = receiptReady ? prior!.attempt : (prior?.attempt ?? 0) + 1;
-        activeRun.steps[name] = { status: "running", attempt };
+        activeRun.steps[name] = { status: "running", attempt, started_at:new Date().toISOString() };
         activeRun.status = "running";
         delete activeRun.error;
         await this.store.save(session);
         try {
           const id = "op_" + hash([command.story_id, command.operation_id, name, attempt]).slice(0, 48);
           const result = await work(id);
-          activeRun.steps[name] = { status: "done", attempt, result };
+          activeRun.steps[name] = { ...activeRun.steps[name], status: "done", attempt, result, completed_at:new Date().toISOString() };
           await this.store.save(session);
           return result;
         } catch (error) {
-          activeRun.steps[name] = { status: "failed", attempt, error: error instanceof OrchestrationError ? error.message : error instanceof StoryProviderError ? error.error.userMessage : "该步骤未完成；可查看服务端请求回执。" };
+          activeRun.steps[name] = { ...activeRun.steps[name], status: "failed", attempt, completed_at:new Date().toISOString(), error: error instanceof OrchestrationError ? error.message : error instanceof StoryProviderError ? error.error.userMessage : "该步骤未完成；可查看服务端请求回执。" };
           throw error;
         }
       };
@@ -116,20 +109,51 @@ export class MainAgent {
         const memory = await restoreMemory(session);
         const knownMemory = await memory.repository.getExtractionContext(command.story_id);
         const { recent, relevant, sourceRecords } = await buildContext(session, command.input, memory.repository);
-        const common = { cast: session.snapshot.characters.characters.map(character => ({ id: character.character_id, name: character.name.value, controlled_by: character.controlled_by, known: character.known_information.value, unknown: character.unknown_information.value })), opening: session.snapshot.world.timeline.filter(event => event.period === "opening"), story_state: session.snapshot, summary: session.summary, current_time: session.current_time, current_location: session.current_location, recent_prose: recent, known_memory: { ...knownMemory, source_records: sourceRecords }, relevant_memory: relevant, user_input: command.input, rule: "忽略 status=rejected 的设定；已确认静态设定与动态事实冲突时保留冲突，不静默覆盖。source_records 保留记忆来源：角色自述、转述、推断只能作为有来源的说法，不得升级为旁白事实。" };
-        const roles = await step<RoleOutput>("roles", async id => checked(await this.agents.roles(id, common), ROLE_SCHEMA));
-        const narrator = await step<NarratorOutput>("narrator", async id => checked(await this.agents.narrator(id, { ...common, character_output: roles.content }), NARRATOR_SCHEMA));
-        const prose = await step<ProseOutput>("transcription", async id => {
-          const result = checked<ProseOutput>(await this.agents.transcription(id, { story_state: { cast: common.cast, opening: common.opening, snapshot: session.snapshot, current_time: session.current_time, current_location: session.current_location, recent_prose: recent, known_memory: common.known_memory }, summary: session.summary.summary, user_input: command.input, character_output: roles.content, narrator_output: narrator }), PROSE_SCHEMA);
-          if (result.current_time !== narrator.current_time || result.current_location !== narrator.current_location) throw new OrchestrationError("scene_conflict", "转写不能改动旁白裁定的时间地点。", 422);
+        const common = { cast: session.snapshot.characters.characters.map(character => ({ id: character.character_id, name: character.name.value, controlled_by: character.controlled_by, known: character.known_information.value, unknown: character.unknown_information.value })), opening: session.snapshot.world.timeline.filter(event => event.period === "opening"), story_state: creativeSnapshot(session.snapshot), summary: session.summary, current_time: session.current_time, current_location: session.current_location, recent_prose: recent, known_memory: { ...knownMemory, source_records: sourceRecords }, relevant_memory: relevant, user_input: command.input, rule: "忽略 status=rejected 的设定；已确认静态设定与动态事实冲突时保留冲突，不静默覆盖。source_records 保留记忆来源：角色自述、转述、推断只能作为有来源的说法，不得升级为旁白事实。" };
+        const roles = await step<RoleOutput>("roles", async id => checked(await this.agents.roles(id, common), ROLE_SCHEMA), true);
+        const interactive = activeRun.pipeline === "interactive_v1" || activeRun.pipeline === "dialogue_v2";
+        const direct = interactive || activeRun.pipeline === "direct_v1";
+        const narrator = await step<NarratorOutput>("narrator", async id => direct ? {
+          current_time: session.current_time || "依照设定选择合理的开局时刻",
+          current_location: session.current_location || "依照设定选择合理的开局地点",
+          background: "本地场景提示；人物行动与故事线在正文调用中一次完成。请承接已有场景并自然推进。",
+          visible_events: [],
+        } : checked(await this.agents.narrator(id, { ...common, character_output: roles.content }), NARRATOR_SCHEMA), direct);
+        let prose = await step<ProseOutput>("transcription", async id => {
+          let lastPreview=0;
+          const progress=async(raw:string)=>{if(raw && Date.now()-lastPreview<700)return;lastPreview=Date.now();const current=activeRun.steps.transcription!;current.preview=prosePreview(raw);if(current.preview && !current.first_content_at)current.first_content_at=new Date().toISOString();await this.store.save(session);};
+          const proseInput = { story_state: { cast: common.cast, opening: common.opening, snapshot: creativeSnapshot(session.snapshot), current_time: session.current_time, current_location: session.current_location, recent_prose: recent, known_memory: common.known_memory }, summary: session.summary.summary, user_input: command.input, character_output: roles.content, narrator_output: narrator };
+          const cue = pendingDialogue(session);
+          const refine = (output: unknown) => validateDialogue(output, session, command.reply_to ? command.input : undefined);
+          const result = interactive
+            ? checked<ProseOutput>(await this.agents.interactiveProse(id, { ...proseInput, player: playerRole(session), npc_response: cue ? { ...cue, player_response:command.input } : null }, refine, progress), INTERACTIVE_PROSE_SCHEMA)
+            : checked<ProseOutput>(await (direct ? this.agents.directProse.bind(this.agents) : this.agents.transcription.bind(this.agents))(id, proseInput, progress), PROSE_SCHEMA);
+          if(interactive)refine(result);
+          // Planning describes the scene setup; prose may advance time and location.
+          // Commit the actual ending scene from the validated prose, retaining the plan in run history.
           return result;
         });
+        if(activeRun.pipeline === "dialogue_v2" && prose.dialogue) {
+          let conversation=session.conversations?.find(c=>c.run_id===activeRun.operation_id);
+          if(!conversation){
+            conversation={id:activeRun.operation_id,run_id:activeRun.operation_id,revision:1,status:"active",speaker:prose.dialogue,player:playerRole(session),messages:[{role:"npc",name:prose.dialogue.speaker_name,text:prose.dialogue.utterance,operation_id:activeRun.operation_id}],exchanges:[],continuation_id:continuationId(activeRun.operation_id)};
+            (session.conversations ??= []).push(conversation);
+          }
+          if(conversation.status === "active") {
+            activeRun.status="waiting_dialogue";await this.store.save(session);return session;
+          }
+          prose=conversationProse(prose,conversation);
+        }
         const chapter = session.chapters.length + 1;
         const input: ProcessTurnInput = { storyId: command.story_id, requestId: command.operation_id, turnId: command.operation_id, chapterNo: chapter, sceneNo: session.turns.filter(turn => turn.chapter === chapter).length + 1, previousMemoryVersion: await memory.repository.getMemoryVersion(command.story_id), storyTime: prose.current_time, narrative: { text: prose.content, segments: [{ segmentId: "prose", kind: "narration", text: prose.content, order: 0 }] } };
-        const extraction = await step("memory_extraction", async id => validateExtraction(await this.agents.extract(id, input, knownMemory), prose.content, new Set(knownMemory.characters.map(character => character.characterId))));
+        const extraction = await step("memory_extraction", async id => {
+          const validated=validateExtraction(await this.agents.extract(id,input,knownMemory),prose.content,new Set(knownMemory.characters.map(character=>character.characterId)));
+          const conversation=session.conversations?.find(c=>c.run_id===activeRun.operation_id);
+          return conversation ? attributeConversationEvidence(validated,conversation) : validated;
+        });
         const projected = await step<ProcessTurnResult>("memory_update", async () => memory.apply(input, extraction, activeRun.created_at), true);
         const summary = await step<SummaryOutput>("summary", async id => checked(await this.agents.summary(id, { previous_summary: session.summary, prose, memory: projected }), SUMMARY_SCHEMA));
-        const turn: Turn = { id: command.operation_id, chapter, input: command.input, prose, memory: projected, created_at: activeRun.created_at };
+        const turn: Turn = { ...(command.reply_to ? {reply_to:command.reply_to} : {}), id: command.operation_id, chapter, input: command.input, prose, memory: projected, created_at: activeRun.created_at };
         const chapterTurns = [...session.turns.filter(item => item.chapter === chapter), turn];
         const archive = await step("chapter", async () => (activeRun.close_chapter || chapterTurns.reduce((length, item) => length + Array.from(item.prose.content).length, 0) >= this.chapterCharacters) ? archiveChapter(chapter, chapterTurns, summary) : null, true);
         // Single commit: prose, summary, memory journal, chapter and run receipt advance together.
@@ -144,6 +168,8 @@ export class MainAgent {
         if (archive) session.chapters.push(archive);
         session.revision++;
         activeRun.status = "succeeded";
+        const closedConversation=session.conversations?.find(c=>c.run_id===activeRun.operation_id);
+        if(closedConversation){closedConversation.status="closed";closedConversation.continuation_revision=session.revision;}
         await this.store.save(session);
         return session;
       } catch (error) {

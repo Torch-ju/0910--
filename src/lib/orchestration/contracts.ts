@@ -3,22 +3,34 @@ import type { ExtractionResult, ProcessTurnInput, ProcessTurnResult } from "../.
 
 export type RoleOutput = { content: string };
 export type NarratorOutput = { current_time: string; current_location: string; background: string; visible_events: string[] };
+export type DialogueCue = { speaker_id: string | null; speaker_name: string; utterance: string };
 export type ProseOutput = {
+  dialogue?: DialogueCue | null;
   content: string; current_time: string; current_location: string;
   new_facts: string[]; timeline_updates: string[]; foreshadowing: string[]; chapter_end_hook: string;
 };
 export type SummaryOutput = { summary: string; unresolved_threads: string[] };
 export type MemoryEntry = { input: ProcessTurnInput; extraction: ExtractionResult; created_at: string };
-export type Turn = { id: string; chapter: number; input: string; prose: ProseOutput; memory: ProcessTurnResult; created_at: string };
+export type Turn = { reply_to?: string; id: string; chapter: number; input: string; prose: ProseOutput; memory: ProcessTurnResult; created_at: string };
 export type Chapter = { id: string; number: number; source_turn_ids: string[]; content: string; summary: SummaryOutput };
 export type StepName = "roles" | "narrator" | "transcription" | "memory_extraction" | "memory_update" | "summary" | "chapter";
 export const STEP_ORDER: StepName[] = ["roles", "narrator", "transcription", "memory_extraction", "memory_update", "summary", "chapter"];
-export type Step = { status: "running" | "done" | "failed"; attempt: number; result?: unknown; error?: string };
+export type Step = { status: "running" | "done" | "failed"; attempt: number; result?: unknown; error?: string; preview?: string; first_content_at?: string; started_at?: string; completed_at?: string };
 export type Run = {
+  pipeline?: "direct_v1" | "interactive_v1" | "dialogue_v2";
+  reply_to?: string;
   operation_id: string; fingerprint: string; base_revision: number; input: string; close_chapter: boolean;
-  status: "running" | "blocked" | "succeeded" | "abandoned"; steps: Partial<Record<StepName, Step>>; created_at: string; error?: string;
+  status: "running" | "blocked" | "waiting_dialogue" | "succeeded" | "abandoned"; steps: Partial<Record<StepName, Step>>; created_at: string; error?: string;
+};
+export type DialogueMessage = { role: "npc" | "user"; name: string; text: string; operation_id: string };
+export type DialogueExchange = { command: TurnCommand; fingerprint: string; status: "running" | "failed" | "done"; attempt: number; model_id: string; error?: string; result?: {utterance:string; finished:boolean} };
+export type Conversation = {
+  id: string; run_id: string; revision: number; status: "active" | "ready" | "closed" | "abandoned";
+  speaker: DialogueCue; player: {id:string|null;name:string}; messages: DialogueMessage[]; exchanges: DialogueExchange[];
+  continuation_id: string; continuation_revision?: number;
 };
 export type StorySession = {
+  conversations?: Conversation[];
   version: 1; revision: number; snapshot: StorySnapshot; summary: SummaryOutput;
   turns: Turn[]; chapters: Chapter[]; memory_journal: MemoryEntry[];
   current_time: string; current_location: string; runs: Run[];
@@ -28,7 +40,7 @@ export type StorySession = {
   memory_checkpoint?: { turn_count: number; action_count: number; counter: number; state: import("../../../memory-agent/src/infrastructure/in-memory-repository").SerializedMemoryState };
 
 };
-export type TurnCommand = { story_id: string; operation_id: string; base_revision: number; input: string; close_chapter?: boolean; retry_failed?: boolean };
+export type TurnCommand = { dialogue_action?: "reply" | "finish"; dialogue_id?: string; dialogue_revision?: number; reply_to?: string; story_id: string; operation_id: string; base_revision: number; input: string; close_chapter?: boolean; retry_failed?: boolean };
 export class OrchestrationError extends Error {
   constructor(public code: string, message: string, public status = 409) { super(message); }
 }

@@ -1,3 +1,5 @@
+import { sharedStoryGeneration } from "./generation-lock";
+import { automaticRetry } from "./automatic-retry";
 import type { AgentRequest, CharacterProfiles, FrameworkResult, NpcResult, RecognitionResult, RevisionResult, StoryWorld, TimelineEvent, ValidationIssue } from "@/lib/story/contracts";
 import Ajv2020 from "ajv/dist/2020";
 import { lockedChanges, validateCharacters, validatePair, validateWorld } from "@/lib/story/validation";
@@ -100,6 +102,10 @@ function requireUserClueCoverage(recognition: RecognitionResult | null, characte
   const missing: ValidationIssue[] = [];
   for (const clue of recognition.character_clues) {
     if (clue.ambiguity !== null || explicitlyRemoved(clue, world)) continue;
+    // First-person input identifies the author's character, not its literal name.
+    if (!clue.existing_character_id && clue.controlled_by === "user" && /^(我|本人|自己|主角|玩家|i|me)$/i.test(clue.label.trim())) {
+      if (characters.characters.filter(character => character.controlled_by === "user").length === 1) continue;
+    }
     const covered = clue.existing_character_id
       ? characters.characters.some((character) => character.character_id === clue.existing_character_id)
       : characters.characters.some((character) => [character.name.value, character.identity.value, ...character.aliases].some((name) => normalizeName(name) === normalizeName(clue.label) || normalizeName(name) === normalizeName(clue.identity)));
@@ -112,7 +118,7 @@ function requireOpening(world: StoryWorld): void {
   if (!world.timeline.some((event) => event.period === "opening")) invalid("框架时间线必须包含至少一个开局事件。", [issue("/world/timeline", "missing opening event")]);
 }
 
-const CONTRACT = `Return one JSON object only. Wire Fact is exactly {value,source,evidence}; the application owns status, locked, timestamps, document headers, change logs and growth_arc.user_confirmed. Keep every business field and stable ID. Use concise Chinese, but retain all user information. Infer coherent missing details from the author input, selected theme, preset style, and current world state; mark inferred or proposed details as ai_inferred or ai_suggestion and preserve explicit author facts. Initial world timelines contain history/opening only and must include at least one opening. Do not reference unavailable NPC IDs. Character aliases retain user names. Character timeline_event_ids reference accepted world.timeline only, never candidate suggestions. Confirmed 不再自动加入 constraints override old input; confirmed merges satisfy clues through identity/name/aliases.`;
+const CONTRACT = `Automatically identify characters, relationships, historical events and opening from supplied author data. The latest Story idea and Current instruction determine generated content; the preset is only a style hint, never a fixed cast, place, plot or era. Existing AI suggestions are revisable drafts, not immutable templates. Reconcile them with the latest author idea while preserving stable identities and explicit locked constraints. Expand the author's concrete details into coherent world, character and timeline fields; never substitute generic preset examples. Missing names, origins, schools, teachers or locations do not block generation: propose compatible details as ai_suggestion, never user-confirmed. Ask optional questions with blocking=false for missing detail. Only contradictory hard constraints may require blocking questions; still return compatible candidates. Never fabricate future plot as history. Return one JSON object only. Wire Fact is exactly {value,source,evidence}; the application owns status, locked, timestamps, document headers, change logs and growth_arc.user_confirmed. Keep every business field and stable ID. Use concise Chinese, but retain all user information. This is structured setup, not novel prose: avoid repeating the same exposition across fields; put each detail in its relevant field. assistant_message should briefly summarize the changes, not repeat the generated documents. Infer coherent missing details from the author input, selected theme, preset style, and current world state; mark inferred or proposed details as ai_inferred or ai_suggestion and preserve explicit author facts. Initial world timelines contain history/opening only and must include at least one opening. Do not reference unavailable NPC IDs. Character aliases retain user names. Character timeline_event_ids reference accepted world.timeline only, never candidate suggestions. Confirmed 不再自动加入 constraints override old input; confirmed merges satisfy clues through identity/name/aliases.`;
 const systemPrompt = (role: string, output: string, schemas: unknown) => `You are the server-side ${role}. ${CONTRACT}\nOutput envelope: ${output}\nRequired wire schemas: ${JSON.stringify(schemas)}\nMinimal format example: {"value":"简短文本","source":"ai_suggestion","evidence":[]}\nReturn JSON only; do not create a fixed roster.`;
 const repairPrompt = (error: StoryProviderError, previous: string) => `Your previous JSON was rejected. Previous JSON: ${previous}. Summary: ${error.error.userMessage}. Exact invalid paths: ${(error.error.fieldErrors ?? [{ path: "/", message: error.error.userMessage }]).map((item) => `${item.path}: ${item.message}`).join("; ")}. Return a corrected complete JSON object only. Preserve all requested entities and IDs.`;
 const contextText = (request: AgentRequest) => request.context ? `Story idea: ${request.context.story_idea}\nUser notes: ${json(request.context.user_notes)}` : `Story idea: ${request.input}\nUser notes: []`;
@@ -132,11 +138,16 @@ export class StoryAgents {
   constructor(deps: AgentDeps = {}) {
     this.config = deps.config ?? readModelConfig(deps.env);
     this.ledger = deps.ledger ?? new RequestLedger();
-    this.client = new ChatCompletionsClient(this.config, deps.fetcher);
+    this.client = new ChatCompletionsClient(this.config, deps.fetcher, undefined, true);
   }
   async used(): Promise<number> { return this.ledger.used(); }
   private async run<T>(action: string, request: AgentRequest, system: string, user: string, decode: (value: unknown) => T): Promise<T> {
+    return sharedStoryGeneration(this.ledger.path+":"+request.world.story_id,fingerprintFor(action,{request:{...request,operation_id:undefined},system},request.base_revision),()=>automaticRetry(this.ledger.path,request.operation_id,fingerprintFor(action,{request,system},request.base_revision),id => this.runOnce(action,{...request,operation_id:id},system,user,decode)));
+  }
+  private async runOnce<T>(action: string, request: AgentRequest, system: string, user: string, decode: (value: unknown) => T): Promise<T> {
     const fingerprint = fingerprintFor(action, { input: request.input, context: request.context, field: request.field, preset_id: request.preset_id, target: request.target, character_id: request.character_id, recognition: request.recognition, world: request.world, characters: request.characters }, request.base_revision);
+    const recovered = await this.ledger.revalidate(request.operation_id, fingerprint, decode);
+    if(recovered.replay !== undefined)return recovered.replay;
     const reservation = await this.ledger.reserve(request.operation_id, fingerprint, this.config.model);
     if (reservation.replay !== undefined) return reservation.replay as T;
     let previous = "<no parseable JSON>";
@@ -172,7 +183,7 @@ export class StoryAgents {
     }
   }
   async framework(request: AgentRequest): Promise<FrameworkResult> {
-    const system = systemPrompt("Story Framework Agent", `{world: WireStoryWorld, recognition: RecognitionResult, assistant_message}. RecognitionResult must match this exact schema: ${JSON.stringify(RECOGNITION_SCHEMA)}. Use only history/opening timeline entries and leave related_character_ids empty unless the ID is already in Current characters. Generate a coherent initial world state from the author idea, theme, tone, preset style, and existing state; fill compatible world rules, conflict, locations, organizations, and opening/history details when the author has left them open.`, { common: WIRE_COMMON_SCHEMA, world: WIRE_WORLD_SCHEMA, recognition: RECOGNITION_SCHEMA });
+    const system = systemPrompt("Story Framework Agent", `{world: WireStoryWorld, recognition: RecognitionResult, assistant_message}. RecognitionResult must match the recognition schema below. Use only history/opening timeline entries and leave related_character_ids empty unless the ID is already in Current characters. Generate a coherent initial world state from the author idea, theme, tone, preset style, and existing state; fill compatible world rules, conflict, locations, organizations, and opening/history details when the author has left them open.`, { common: WIRE_COMMON_SCHEMA, world: WIRE_WORLD_SCHEMA, recognition: RECOGNITION_SCHEMA });
     return this.run("framework", request, system, `Preset: ${request.preset_id}. ${contextText(request)}\nCurrent instruction: ${request.input}\nExisting world wire: ${json(toWireWorld(request.world))}\nExisting characters wire: ${json(toWireCharacters(request.characters))}`, (value) => {
       const out = exact(value, ["world", "recognition", "assistant_message"]);
       if (typeof out.assistant_message !== "string") invalid("框架说明必须是文本。");
@@ -196,6 +207,12 @@ export class StoryAgents {
       assertIssues(validateWireCharacters(out.characters).map(item => ({ ...item, path: "/characters" + (item.path === "/" ? "" : item.path) })));
       const characters = hydrateCharacters(out.characters, request.characters, request.input);
       const suggestions = assertSuggestions(out.timeline_suggestions, request.world, request.input);
+      const restored = request.characters.characters.filter(old => !characters.characters.some(c => c.character_id === old.character_id));
+      characters.characters.push(...structuredClone(restored));
+      for (const relation of request.characters.relationships) if (!characters.relationships.some(r => r.relationship_id === relation.relationship_id)) characters.relationships.push(structuredClone(relation));
+      // Back references are derived indexes, not creative text for a model to regenerate.
+      for (const character of characters.characters) character.relationship_ids = characters.relationships.filter(r => r.from_character_id === character.character_id || r.to_character_id === character.character_id).map(r => r.relationship_id);
+      if (restored.length) (out.warnings as string[]).push("已保留生成结果中省略的现有人物。" );
       preserveExistingCharacters(request.characters, characters);
       requireUserClueCoverage(request.recognition, characters, request.world);
       const requested = requestedCharacterCount(`${request.context?.story_idea ?? ""}\n${request.context?.user_notes.join("\n") ?? ""}\n${request.input}`);

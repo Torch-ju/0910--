@@ -64,3 +64,12 @@ export function prepareCandidate(snapshot: StorySnapshot, candidate: Candidate):
   if (!issues.length) proposed.base_revision = snapshot.snapshot_revision;
   return { candidate: proposed, issues };
 }
+
+/** Automatically adopt non-conflicting changes; the three-way merge already preserves user edits. */
+export function prepareAutomaticCandidate(snapshot: StorySnapshot, candidate: Candidate) {
+  const prepared = prepareCandidate(snapshot, candidate);
+  const resolved = new Set(["EDIT_CONFLICT", "DELETE_CONFLICT", "DELETED_ENTITY_CONFLICT"]);
+  const issues = prepared.issues.filter(issue => !resolved.has(issue.code));
+  if (!issues.length) prepared.candidate.base_revision = snapshot.snapshot_revision;
+  return { candidate: prepared.candidate, issues, preservedEdits: prepared.issues.length - issues.length };
+}

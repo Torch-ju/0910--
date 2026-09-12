@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { createStoryAgents } from "./agents";
 import { readModelConfig, RequestLedger, StoryProviderError } from "./model";
 import { hydrateCharacters, hydrateWorld, toWireCharacters, toWireTimelineEvent, toWireWorld, validateWireWorld } from "./wire-contract";
-import { createCharacter, createSnapshot, createTimelineEvent, fact } from "@/lib/story/factory";
+import { createCharacter, createRelationship, createSnapshot, createTimelineEvent, fact } from "@/lib/story/factory";
 import type { AgentRequest, CharacterProfiles, FrameworkResult, NpcResult, TimelineEvent } from "@/lib/story/contracts";
 import { validateCharacters, validateWorld } from "@/lib/story/validation";
 
@@ -60,6 +60,7 @@ describe("StoryAgents", () => {
     const mock = recording([response(malformed), response(frameworkResult(input))]);
     const agents = createStoryAgents({ env, ledger: await temporaryLedger(), fetcher: mock.fetcher });
     await expect(agents.framework(input)).resolves.toMatchObject({ recognition: { summary: expect.any(String) } });
+    expect(mock.requests[0]).toMatchObject({response_format:{type:"json_object"}});
     expect(JSON.stringify(mock.requests[1])).toContain("Previous JSON");
     expect(JSON.stringify(mock.requests[1])).toContain("/character_clues/0/evidence");
   });
@@ -124,12 +125,12 @@ describe("StoryAgents", () => {
     expect(await ledger.used()).toBe(2);
   });
 
-  it("does not retry an uncertain timeout under the same operation id", async () => {
+  it("automatically retries timeouts twice and preserves exhausted receipts", async () => {
     const input = request(); const aborted = Object.assign(new Error("aborted"), { name: "AbortError" });
-    const mock = sequence([aborted]); const agents = createStoryAgents({ env, ledger: await temporaryLedger(), fetcher: mock.fetcher });
+    const mock = sequence([aborted,aborted,aborted]); const agents = createStoryAgents({ env, ledger: await temporaryLedger(), fetcher: mock.fetcher });
     await expect(agents.framework(input)).rejects.toMatchObject({ status: 504, error: { code: "request_timeout" } });
     await expect(agents.framework(input)).rejects.toMatchObject({ status: 409, error: { code: "operation_unavailable" } });
-    expect(mock.calls()).toBe(1);
+    expect(mock.calls()).toBe(3);
   });
 
   it("reports missing provider configuration before a request is reserved", () => {
@@ -283,4 +284,41 @@ it("supplies the full NPC container schema and gives a precise repair for a flat
   expect(first.messages[0].content).toContain('"relationships"');
   expect(first.messages[0].content).toContain('NOT an array');
   expect(second.messages[1].content).toContain('/characters: expected {characters: [...], relationships: [...]}, not an array');
+});
+
+it("matches first-person clues to one named user character instead of requiring a character named 我", async () => {
+  const input = request("op_first_person");
+  input.recognition={summary:"我要当大侠",character_clues:[{label:"我",identity:"主角，未来大侠",evidence:["我要当大侠"],existing_character_id:null,controlled_by:"user",ambiguity:null}],hard_constraints:[],ambiguities:[],questions:[]};
+  const profiles=npcProfiles(input,2);profiles.characters[0].controlled_by="user";profiles.characters[0].name=fact("林青");
+  const mock=sequence([response({characters:toWireCharacters(profiles),timeline_suggestions:[],warnings:[],assistant_message:"人物"})]);
+  const agents=createStoryAgents({env,ledger:await temporaryLedger(),fetcher:mock.fetcher});
+  expect((await agents.npcs(input)).characters.characters[0].name.value).toBe("林青");
+  expect(mock.calls()).toBe(1);
+});
+
+
+it("repairs NPC relationship indexes and retains omitted existing people without a model repair", async () => {
+  const input=request("op_local_indexes");
+  const old=createCharacter("旧人物","npc_old"), other=createCharacter("同伴","npc_other");
+  const relationship=createRelationship(old.character_id,other.character_id);
+  old.relationship_ids=[relationship.relationship_id];other.relationship_ids=[relationship.relationship_id];
+  input.characters.characters=[old,other];input.characters.relationships=[relationship];
+  const profiles=npcProfiles(input,1);profiles.characters.push(structuredClone(other));
+  profiles.characters[1].relationship_ids=[];
+  const mock=sequence([response({...npcResult(input,1),characters:toWireCharacters(profiles)})]);
+  const result=await createStoryAgents({env,ledger:await temporaryLedger(),fetcher:mock.fetcher}).npcs(input);
+  expect(mock.calls()).toBe(1);
+  expect(result.characters.characters.find(c=>c.character_id===old.character_id)).toEqual(old);
+  expect(result.characters.characters.find(c=>c.character_id===other.character_id)?.relationship_ids).toEqual([relationship.relationship_id]);
+  expect(result.characters.relationships).toEqual([relationship]);
+  expect(validateCharacters(result.characters)).toEqual([]);
+});
+
+it("does not invent a missing relationship endpoint to bypass validation", async () => {
+  const input=request("op_bad_endpoint"),profiles=npcProfiles(input,1);
+  profiles.relationships=[createRelationship("npc_1","npc_missing")];
+  const output={...npcResult(input,1),characters:toWireCharacters(profiles)};
+  const mock=sequence([response(output),response(output)]);
+  await expect(createStoryAgents({env,ledger:await temporaryLedger(),fetcher:mock.fetcher}).npcs(input)).rejects.toBeInstanceOf(StoryProviderError);
+  expect(mock.calls()).toBe(2);
 });

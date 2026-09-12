@@ -106,6 +106,13 @@ export function validateExtraction(raw: unknown, text: string, knownIds: Set<str
       const items = record[key]; if (!Array.isArray(items)) continue;
       for (const [index, item] of items.entries()) {
         const evidence = item?.evidence;
+        if (typeof evidence?.quote === "string" && !text.includes(evidence.quote)) {
+          // Correct typography only when it maps to one exact contiguous source span.
+          const typography = (value: string) => value.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");
+          const candidate = typography(evidence.quote.replace(/\\(["'\\])/g, "$1"));
+          const source = typography(text), at = candidate ? source.indexOf(candidate) : -1;
+          if (at >= 0 && source.indexOf(candidate, at + 1) < 0) evidence.quote = text.slice(at, at + candidate.length);
+        }
         if (typeof evidence?.quote === "string" && (!text.includes(evidence.quote) || evidence.segmentId !== "prose")) evidenceIssues.push(`/${key}/${index}/evidence：${JSON.stringify(evidence.quote)}`);
       }
     }

@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     try { body = JSON.parse(text); } catch { throw new OrchestrationError("invalid_json", "请求必须是 JSON。", 400); }
     if (!body || typeof body !== "object" || Array.isArray(body)) throw new OrchestrationError("invalid_request", "请求必须是对象。", 400);
     const allowed: Record<string, string[]> = {
-      initialize: ["action", "snapshot"], turn: ["action", "story_id", "operation_id", "base_revision", "input", "close_chapter", "retry_failed"],
+      initialize: ["action", "snapshot"], turn: ["action", "story_id", "operation_id", "base_revision", "input", "close_chapter", "retry_failed", "reply_to", "dialogue_action", "dialogue_id", "dialogue_revision"],
       framework: ["action", "request"], npcs: ["action", "request"], revise: ["action", "request"], field: ["action", "request"],
     };
     const action = typeof body.action === "string" ? body.action : "";

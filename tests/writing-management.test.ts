@@ -14,7 +14,7 @@ describe("writing management", () => {
     const { main, command, model } = await fixture(); const story = await main.turn(command);
     const manager = new StoryManager(main), action = { action: "close_chapter" as const, story_id: command.story_id, operation_id: "op_close", base_revision: story.revision };
     const closed = await manager.manage(action); expect(closed.chapters[0].content).toBe(story.turns[0].prose.content);
-    expect((await manager.manage(action)).chapters).toHaveLength(1); expect(model.calls).toBe(5);
+    expect((await manager.manage(action)).chapters).toHaveLength(1); expect(model.calls).toBe(3);
     await expect(manager.manage({ ...action, operation_id: "op_other" })).rejects.toMatchObject({ code: "revision_conflict" });
   });
   it("abandons a failed turn with an audit trail and allows new prose", async () => {
@@ -66,7 +66,7 @@ describe("writing management", () => {
     const { main, command, model, directory } = await fixture(); const tasks = new NarrativeTasks(main);
     const { task } = await tasks.create("task_first", command); expect((await tasks.get(task.task_id)).status).toBe("queued");
     await tasks.execute(task); expect((await tasks.get(task.task_id)).status).toBe("done");
-    expect((await tasks.create("task_first", command)).created).toBe(false); expect(model.calls).toBe(5);
+    expect((await tasks.create("task_first", command)).created).toBe(false); expect(model.calls).toBe(3);
     await mkdir(join(directory, "tasks"), { recursive: true });
     await writeFile(join(directory, "tasks", "task_orphan.json"), JSON.stringify({ ...task, task_id: "task_orphan", status: "running" }));
     expect((await tasks.get("task_orphan")).status).toBe("interrupted");
@@ -81,10 +81,10 @@ describe("interruption boundaries", () => {
   });
   it("cancels between child calls while retaining the original input", async () => {
     const { main, command, model } = await fixture(); let checks = 0;
-    const session = await main.turn(command, { shouldCancel: async () => ++checks > 1 });
+    const session = await main.turn(command, { shouldCancel: async () => ++checks > 3 });
     expect(model.calls).toBe(1); expect(session.runs[0].status).toBe("blocked"); expect(session.runs[0].steps.roles?.status).toBe("done");
     expect(session.runs[0].error).toContain("停止");
-    const done = await main.turn({ ...command, retry_failed: true }); expect(done.turns).toHaveLength(1); expect(model.calls).toBe(5);
+    const done = await main.turn({ ...command, retry_failed: true }); expect(done.turns).toHaveLength(1); expect(model.calls).toBe(3);
   });
   it("handles a cancelled queued background task without model calls", async () => {
     const { main, command, model } = await fixture(); const tasks = new NarrativeTasks(main);

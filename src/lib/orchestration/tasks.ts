@@ -25,7 +25,7 @@ export class NarrativeTasks {
     return task;
   }
   async create(id: string, command: TurnCommand) {
-    command = z.object({ story_id: z.string(), operation_id: z.string(), base_revision: z.number().int().positive(), input: z.string().min(1).max(12000), close_chapter: z.boolean().optional(), retry_failed: z.boolean().optional() }).strict().parse(command);
+    command = z.object({ dialogue_action:z.enum(["reply","finish"]).optional(), dialogue_id:z.string().optional(), dialogue_revision:z.number().int().positive().optional(), reply_to: z.string().min(1).max(96).optional(), story_id: z.string(), operation_id: z.string(), base_revision: z.number().int().positive(), input: z.string().min(1).max(12000), close_chapter: z.boolean().optional(), retry_failed: z.boolean().optional() }).strict().parse(command);
     assertId(id); assertId(command.story_id); assertId(command.operation_id);
     if (!command.input?.trim() || command.input.length > 12000 || !Number.isInteger(command.base_revision)) throw new OrchestrationError("invalid_request", "请输入有效剧情与版本。", 400);
     return this.main.store.exclusive("task_" + id.slice(-80), async () => {
@@ -53,7 +53,10 @@ export class NarrativeTasks {
       const cancelled = async () => { try { await readFile(join(this.directory, task.task_id + ".cancel")); return true; } catch { return false; } };
       const result = await this.main.turn(task.command, { shouldCancel: cancelled });
       task.status = "done";
-      if (result.runs.find(run => run.operation_id === task.command.operation_id)?.status !== "succeeded") task.error = "轮次尚未完成，请查看失败步骤。";
+      const run = result.runs.find(run => run.operation_id === task.command.operation_id);
+      const exchange=result.conversations?.flatMap(c=>c.exchanges).find(e=>e.command.operation_id===task.command.operation_id);
+      if (!(["succeeded","waiting_dialogue"].includes(run?.status ?? "") || exchange?.status==="done"))task.error=run?.error ?? exchange?.error ?? "轮次尚未完成，请查看失败步骤。";
+      const blocked=result.runs.find(r=>r.status==="blocked");if(blocked)task.error=blocked.error;
       if (await cancelled() && task.error) task.status = "cancelled";
     } catch (error) { task.status = "interrupted"; task.error = error instanceof OrchestrationError ? error.message : "任务未完成，请检查故事状态。"; }
     finally { try { await this.save(task); } finally { active.delete(task.task_id); } }

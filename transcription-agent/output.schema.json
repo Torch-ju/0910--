@@ -12,8 +12,7 @@
   "properties": {
     "content": {
       "type": "string",
-      "minLength": 1,
-      "maxLength": 16000
+      "minLength": 1
     },
     "current_time": {
       "type": "string",
