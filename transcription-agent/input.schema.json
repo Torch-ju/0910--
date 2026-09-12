@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TranscriptionInputV2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "story_state",
+    "user_input",
+    "character_output",
+    "narrator_output"
+  ],
+  "properties": {
+    "story_state": {
+      "type": "object"
+    },
+    "summary": {
+      "type": "string",
+      "maxLength": 4000
+    },
+    "user_input": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 16000
+    },
+    "character_output": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 16000
+    },
+    "narrator_output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "current_time",
+        "current_location",
+        "background",
+        "visible_events"
+      ],
+      "properties": {
+        "current_time": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16000
+        },
+        "current_location": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16000
+        },
+        "background": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16000
+        },
+        "visible_events": {
+          "type": "array",
+          "maxItems": 30,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 16000
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,58 @@
+// testFixture is supplied by the portable runner; use an isolated localhost port only.
+await page.goto(testBase);
+await page.evaluate(snapshot => {
+  localStorage.removeItem('shuzhongren.active-story');
+  localStorage.setItem('shuzhongren.workspace.v1', JSON.stringify({ version:1, current:snapshot, previous:null, candidate:null, pending:null, saved_at:new Date().toISOString() }));
+}, testFixture);
+await page.reload();
+await page.getByRole('button', {name:'开始写作', exact:true}).click();
+await expect(page.getByRole('heading',{name:'雨夜来信',exact:true})).toBeVisible();
+await context.request.post(testModel + '/control', {data:{delay:100}});
+await page.getByLabel('你的行动或对白').fill('我在门边问候沈砚。');
+await page.getByRole('button',{name:'推进故事',exact:true}).click();
+await page.getByLabel('你的行动或对白').fill('正在准备下一轮的草稿。');
+await expect(page.getByText('本轮已完成',{exact:true})).toBeVisible({timeout:15000});
+await expect(page.locator('.wa-prose article')).toHaveCount(1);
+await expect(page.getByLabel('你的行动或对白')).toHaveValue('正在准备下一轮的草稿。');
+const before = await (await context.request.get(testModel + '/metrics')).json();
+await page.reload();
+await expect(page.locator('.wa-prose article')).toHaveCount(1);
+const after = await (await context.request.get(testModel + '/metrics')).json();
+assert.equal(before.calls, after.calls, 'refresh must not generate');
+await context.request.post(testModel + '/control', {data:{fail:'summary'}});
+await page.getByLabel('你的行动或对白').fill('我询问信件的来历。');
+await page.getByRole('button',{name:'推进故事',exact:true}).click();
+await expect(page.getByRole('button',{name:'恢复未完成轮次（可能计费）',exact:true})).toBeEnabled({timeout:15000});
+await expect(page.locator('.wa-prose article')).toHaveCount(1);
+await page.reload();
+await expect(page.getByRole('button',{name:'恢复未完成轮次（可能计费）',exact:true})).toBeEnabled();
+const countBeforeRetry = (await (await context.request.get(testModel + '/metrics')).json()).calls;
+page.once('dialog', dialog => dialog.accept());
+await page.getByRole('button',{name:'恢复未完成轮次（可能计费）',exact:true}).click();
+await expect(page.locator('.wa-prose article')).toHaveCount(2,{timeout:15000});
+const countAfterRetry = (await (await context.request.get(testModel + '/metrics')).json()).calls;
+assert.equal(countAfterRetry - countBeforeRetry, 1, 'resume must only regenerate summary');
+await page.getByRole('button',{name:'章节与伏笔',exact:true}).click();
+await page.getByRole('button',{name:'结束当前章（不生成新剧情）',exact:true}).click();
+await expect(page.getByText('第 1 章 · 2 个片段',{exact:true})).toBeVisible();
+await page.evaluate(() => { const original = URL.createObjectURL; globalThis.__exportedText = null; URL.createObjectURL = function(blob) { blob.text().then(text => { globalThis.__exportedText = text; }); return original.call(URL, blob); }; });
+await page.getByRole('button',{name:'导出全文',exact:true}).click();
+await page.waitForFunction(() => typeof globalThis.__exportedText === 'string');
+assert((await page.evaluate(() => globalThis.__exportedText)).includes('雨敲着窗。'));
+await page.getByRole('button',{name:'人物与记忆',exact:true}).click();
+await expect(page.getByText('沈砚 · 独立人物',{exact:true})).toBeVisible();
+await page.getByRole('button',{name:'我的作品',exact:true}).click();
+await expect(page.getByRole('heading',{name:'雨夜来信',exact:true})).toBeVisible();
+await page.getByRole('button',{name:'打开作品',exact:true}).click();
+const widths = [375,768,1280,1440];
+for (const width of widths) {
+  await page.setViewportSize({width,height:900});
+  const sizes = await page.evaluate(()=>({document:document.documentElement.scrollWidth,viewport:window.innerWidth}));
+  assert(sizes.document <= sizes.viewport, 'horizontal overflow at '+width);
+}
+await page.emulateMedia({reducedMotion:'reduce'});
+await page.setViewportSize({width:375,height:812});
+const outcome = {passed:['initialize','narrative','preserve-next-draft','refresh-no-call','summary-failure','resume-one-call','chapter','export','memory','library','responsive'],calls:countAfterRetry,storyId:testFixture.world.story_id};
+
+await page.close();
+return outcome;

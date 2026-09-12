@@ -272,3 +272,15 @@ describe("StoryAgents", () => {
   });
 });
 
+
+it("supplies the full NPC container schema and gives a precise repair for a flattened array", async () => {
+  const input = request("op_npc_wrapper_fix"), valid = npcResult(input, 1);
+  const wrong = { ...valid, characters: (valid.characters as unknown as { characters: unknown[] }).characters };
+  const recorded = recording([response(wrong), response(valid)]);
+  const agents = createStoryAgents({ env, ledger: await temporaryLedger(), fetcher: recorded.fetcher });
+  expect((await agents.npcs(input)).characters.characters).toHaveLength(1);
+  const first = recorded.requests[0] as { messages: { content: string }[] }, second = recorded.requests[1] as { messages: { content: string }[] };
+  expect(first.messages[0].content).toContain('"relationships"');
+  expect(first.messages[0].content).toContain('NOT an array');
+  expect(second.messages[1].content).toContain('/characters: expected {characters: [...], relationships: [...]}, not an array');
+});

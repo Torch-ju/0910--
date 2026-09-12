@@ -8,3 +8,6 @@ test-results/
 *.tsbuildinfo
 .playwright-cli/
 output/playwright/
+
+# macOS folder metadata
+.DS_Store

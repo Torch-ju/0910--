@@ -1,3 +1,4 @@
+import { assertSameOrigin } from "./_io";
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import type { AgentRequest, AppError } from "@/lib/story/contracts";
@@ -8,6 +9,7 @@ const statusFor = (code: string): number => ({ invalid_request: 400, idempotency
 const generic: AppError = { code: "internal_error", userMessage: "服务端处理请求时发生错误。", retryable: false };
 
 export function errorResponse(error: unknown): NextResponse<{ error: AppError }> {
+  if (error instanceof OrchestrationError) return NextResponse.json({ error: { code: error.code, userMessage: error.message, retryable: false } }, { status: error.status });
   const base = error instanceof StoryProviderError ? error.error : generic;
   const withTrace: AppError = { ...base, requestId: base.requestId ?? randomUUID(), fieldErrors: base.fieldErrors ?? [{ code: base.code, path: "/", message: base.userMessage }] };
   return NextResponse.json({ error: withTrace }, { status: error instanceof StoryProviderError ? error.status || statusFor(base.code) : 500 });
@@ -15,6 +17,7 @@ export function errorResponse(error: unknown): NextResponse<{ error: AppError }>
 
 const invalid = (message: string): never => { throw new StoryProviderError({ code: "invalid_request", userMessage: message, retryable: false }, 400); };
 export async function agentRequest(request: Request): Promise<AgentRequest> {
+  assertSameOrigin(request);
   let body: unknown;
   const contentLength = Number(request.headers.get("content-length") ?? 0);
   if (Number.isFinite(contentLength) && contentLength > 512 * 1024) invalid("请求体超过允许大小。");
@@ -40,3 +43,4 @@ export async function agentRequest(request: Request): Promise<AgentRequest> {
   if (worldIssues.length || characterIssues.length) throw new StoryProviderError({ code: "invalid_request", userMessage: "提交的故事状态未通过数据契约校验。", retryable: false, fieldErrors: [...worldIssues, ...characterIssues] }, 400);
   return candidate as AgentRequest;
 }
+import { OrchestrationError } from "@/lib/orchestration/contracts";

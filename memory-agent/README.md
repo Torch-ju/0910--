@@ -94,3 +94,8 @@ const result = await agent.processTurn({
 - [其他 Agent 接入契约](docs/integration-contract.md)
 - [数据模型与检索策略](docs/data-model.md)
 - [人物画像 Schema 替换说明](docs/portrait-schema-adapter.md)
+
+
+## 主应用集成入口
+
+主应用现通过 `../src/lib/orchestration/memory.ts` 复用抽取、记忆处理和画像投影。初始角色沿用主应用稳定 ID，已验证抽取日志随故事会话一起提交，并可在重启时确定性重放。默认主应用未使用本包的 PostgreSQL 仓库；验证台也不是正式写作界面。完整调用规则见 [工作区 MAIN_AGENT_RULES](../../MAIN_AGENT_RULES.md)。

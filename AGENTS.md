@@ -4,7 +4,7 @@
 
 ## 产品与范围入口
 
-产品本意及第一层需求只维护在 [功能规格 SPEC-L1](<D:/研究生学习资料/竞赛/20260911 黑客松比赛/docs/PRODUCT_SPEC.md>)。所有开发必须能对应其中的功能 ID。已定决策见 [DECISIONS](<D:/研究生学习资料/竞赛/20260911 黑客松比赛/memory/DECISIONS.md>)。不要把早期完整产品架构中的未来章节、长记忆或账号系统自动带入第一层。
+完整产品需求维护在仓库根目录 [PRD](PRD.md)，应用主 Agent 调用契约在 [MAIN_AGENT_RULES](MAIN_AGENT_RULES.md)。第一层详细需求继续维护在 [功能规格 SPEC-L1](docs/PRODUCT_SPEC.md)。新增工作对应完整 PRD 的 FR/AC 编号，第一层工作对应原功能 ID。已定决策见 [DECISIONS](<memory/DECISIONS.md>)。用户已明确授权完整待办中的本地功能与真实模型验收。公网部署需要目标环境；提交推送仍按明确授权步骤处理。
 
 项目 `memory/` 是唯一开发记忆库；它服务于开发接续，不承担产品用户的故事记忆。
 
@@ -14,7 +14,8 @@
 | --- | --- | --- |
 | 项目规则与恢复协议 | `AGENTS.md` | 协作规则发生变化 |
 | 项目入口与可复现启动命令 | `README.md` | 入口或实际命令变化 |
-| 产品本意、功能、UI 与数据契约需求 | `docs/PRODUCT_SPEC.md` | 用户需求或具体设计变化 |
+| 完整产品需求 / 主 Agent 调用契约 | 仓库 `PRD.md` / `MAIN_AGENT_RULES.md` | 完整范围或调用行为变化 |
+| 第一层功能、UI 与数据契约细节 | `docs/PRODUCT_SPEC.md` | 第一层需求或具体设计变化 |
 | 记忆文件与主题索引 | `memory/INDEX.md` | 文件或定位方式变化 |
 | 当前任务、进度、阻塞、下一步、授权 | `memory/CURRENT.md` | 有实质进展或用户改变方向 |
 | 决策依据和被替代关系 | `memory/DECISIONS.md` | 作出或改变一个决定 |

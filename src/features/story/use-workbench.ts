@@ -9,6 +9,7 @@ import { isFact, validatePair, walkFacts } from "@/lib/story/validation";
 import { deserializeWorkspace, exportDocument, serializeWorkspace, STORAGE_KEY, type PendingRequest } from "@/lib/story/storage";
 import { callStoryApi, getProviderStatus, RequestError } from "@/lib/api/story-client";
 type Internal = { snapshot:StorySnapshot;previous:StorySnapshot|null;candidate:Candidate|null;pending:PendingRequest|null;busy:boolean;stage:string;error:AppError|null;savedAt:string|null;provider:ProviderStatus|null;restored:boolean;storageBroken:boolean;autoNpcs:boolean };
+const hasBlocking = (snapshot:StorySnapshot) => snapshot.recognition?.questions.some(q=>q.blocking) || [...snapshot.world.open_questions,...snapshot.characters.characters.flatMap(c=>c.open_questions)].some(q=>q.blocking&&q.status==="open");
 const initial=():Internal=>({snapshot:createSnapshot(),previous:null,candidate:null,pending:null,busy:false,stage:"等待你的故事",error:null,savedAt:null,provider:null,restored:false,storageBroken:false,autoNpcs:true});
 function errorOf(e:unknown):AppError{
   if(e instanceof RequestError)return e.detail;
@@ -27,7 +28,7 @@ export function useWorkbench():{model:WorkbenchModel;actions:WorkbenchActions}{
     queueMicrotask(()=>{
       try{
         const raw=localStorage.getItem(STORAGE_KEY);
-        if(raw){const data=deserializeWorkspace(raw);update({snapshot:data.current,previous:data.previous,candidate:data.candidate,pending:data.pending,savedAt:data.saved_at,restored:true,error:data.pending?{code:"PENDING_REQUEST",userMessage:"上次请求的结果尚未确认。可重试原操作查询结果，或明确选择以新额度重新发起。",retryable:true}:null,stage:data.pending?"上次请求尚未确认，可重试原操作以查询结果":"已恢复上次创作"});}
+        if(raw){const data=deserializeWorkspace(raw);update({snapshot:data.current,previous:data.previous,candidate:data.candidate,pending:data.pending,savedAt:data.saved_at,restored:true,error:data.pending?{code:"PENDING_REQUEST",userMessage:"上次请求的结果尚未确认。可重试原操作查询结果，或明确选择以新请求重新发起（可能计费）。",retryable:true}:null,stage:data.pending?"上次请求尚未确认，可重试原操作以查询结果":"已恢复上次创作"});}
         else update({restored:true});
       }catch(e){update({restored:true,storageBroken:true,error:errorOf(e),stage:"本地记录需检查，尚未覆盖"});}
       void refreshStatus();
@@ -58,7 +59,7 @@ export function useWorkbench():{model:WorkbenchModel;actions:WorkbenchActions}{
     const s=latest.current;if(s.busy)return;
     if(!input.trim()){update({error:{code:"EMPTY_INPUT",userMessage:"先写下你的故事想法。",retryable:false}});return;}
     if(endpoint==="npcs"&&!s.snapshot.world.title.value.trim()){update({error:{code:"WORLD_REQUIRED",userMessage:"请先构建或填写世界框架，再生成 NPC。",retryable:false}});return;}
-    if(endpoint==="npcs"&&s.snapshot.recognition?.questions.some(q=>q.blocking)){update({error:{code:"OPEN_QUESTIONS",userMessage:"世界已保留，请先回答识别反馈中的关键问题，再生成 NPC。",retryable:false}});return;}
+    if(endpoint==="npcs"&&hasBlocking(s.snapshot)){update({error:{code:"OPEN_QUESTIONS",userMessage:"世界已保留，请先回答识别反馈中的关键问题，再生成 NPC。",retryable:false}});return;}
     if(!s.snapshot.input.trim()){update({error:{code:"SHARED_IDEA_REQUIRED",userMessage:"请先填写共同故事想法；局部要求不能替代故事总设定。",retryable:false}});return;}
     if(field){try{getFieldContract(s.snapshot.world,s.snapshot.characters,field);}catch(e){update({error:errorOf(e)});return;}}
     if(s.candidate){update({error:{code:"CANDIDATE_PENDING",userMessage:"请先采用或放弃当前候选修改，再发起新的生成。",retryable:false}});return;}
@@ -89,6 +90,13 @@ export function useWorkbench():{model:WorkbenchModel;actions:WorkbenchActions}{
     finally{void refreshStatus();}
   },[update,refreshStatus,save]);
   const actions=useMemo<WorkbenchActions>(()=>({
+    loadSnapshot(snapshot){
+      const current=latest.current;if(current.busy)return;
+      if(!window.confirm("载入此作品设定？当前浏览器草稿会先备份。"))return;
+      try { const raw=localStorage.getItem(STORAGE_KEY);if(raw)localStorage.setItem(STORAGE_KEY+".archive."+current.snapshot.world.story_id+"."+Date.now(),raw); }
+      catch { update({error:{code:"BACKUP_FAILED",userMessage:"草稿备份失败，未载入。",retryable:true}});return; }
+      update({snapshot:structuredClone(snapshot),previous:current.snapshot,candidate:null,pending:null,error:null,stage:"已载入作品设定，修改后请确认并同步"});save();
+    },
     setPreset(preset){
       const s=latest.current;
       if(s.snapshot.preset_id===preset)return;
@@ -126,7 +134,7 @@ export function useWorkbench():{model:WorkbenchModel;actions:WorkbenchActions}{
         update({snapshot:next,previous:old,candidate:null,error:null,savedAt:null,stage:"候选已加入草案，可编辑并确认"});save();
         const framework=c.origin==="framework"||(!c.origin&&old.characters.characters.length===0&&!!next.recognition&&!!next.world.title.value.trim());
         if(framework&&current.autoNpcs&&!latest.current.error){
-          if(next.recognition?.questions.some(q=>q.blocking)){update({stage:"世界已采用，请先回答关键问题后生成 NPC"});return;}
+          if(hasBlocking(next)){update({stage:"世界已采用，请先回答关键问题后生成 NPC"});return;}
           void run("npcs","根据共同故事想法和刚采用的世界、历史、开局需要生成 NPC 候选。");
         }
       }catch(e){update({error:errorOf(e)});}
@@ -166,7 +174,7 @@ export function useWorkbench():{model:WorkbenchModel;actions:WorkbenchActions}{
     dismissError(){update({error:null});},
     async startNewAttempt(){
       const s=latest.current;if(s.busy||!s.pending)return;
-      if(!window.confirm("原请求的状态可能不确定，也可能已经计费。确定以新的操作标识重新发起一次？这会占用一次剩余联调额度。"))return;
+      if(!window.confirm("原请求的状态可能不确定，也可能已经计费。确定以新的操作标识重新发起一次？这可能产生新的模型费用。"))return;
       const pending=s.pending;update({pending:null,error:null});
       await run(pending.endpoint,pending.body.input,pending.body.target,pending.body.character_id,pending.body.field);
     },

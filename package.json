@@ -4,15 +4,17 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node scripts/next.mjs dev --hostname 127.0.0.1",
-    "build": "node scripts/next.mjs build",
+    "dev": "node scripts/next.mjs dev --webpack --hostname 127.0.0.1",
+    "build": "node scripts/next.mjs build --webpack",
     "start": "node scripts/next.mjs start --hostname 127.0.0.1",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:e2e": "playwright test",
+    "test:e2e": "node scripts/testing/e2e.mjs",
     "schemas:generate": "node scripts/generate-types.mjs",
-    "schemas:check": "node scripts/generate-types.mjs --check"
+    "schemas:check": "node scripts/generate-types.mjs --check",
+    "test:real": "node scripts/testing/real.mjs",
+    "docs:sync": "node scripts/sync-product-docs.mjs"
   },
   "dependencies": {
     "ajv": "^8.17.1",
@@ -20,7 +22,8 @@
     "lucide-react": "latest",
     "next": "16.3.5",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "zod": "4.6.2"
   },
   "devDependencies": {
     "@playwright/test": "latest",

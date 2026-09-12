@@ -6,12 +6,12 @@
 
 | 文档 ID | 唯一文件 | 存什么 |
 | --- | --- | --- |
-| RULES | [AGENTS.md](<D:/研究生学习资料/竞赛/20260911 黑客松比赛/AGENTS.md>) | 项目接续与维护规则 |
-| ENTRY | [README.md](<D:/研究生学习资料/竞赛/20260911 黑客松比赛/README.md>) | 人类阅读入口和真实启动命令 |
-| SPEC-L1 | [PRODUCT_SPEC.md](<D:/研究生学习资料/竞赛/20260911 黑客松比赛/docs/PRODUCT_SPEC.md>) | 产品本意、功能、UI 与 Schema 要求 |
-| CURRENT | [CURRENT.md](<D:/研究生学习资料/竞赛/20260911 黑客松比赛/memory/CURRENT.md>) | 现在进行到哪里、允许做什么、接下来做什么 |
-| DECISIONS | [DECISIONS.md](<D:/研究生学习资料/竞赛/20260911 黑客松比赛/memory/DECISIONS.md>) | 决策的来源、理由和有效性 |
-| HISTORY | [HISTORY.md](<D:/研究生学习资料/竞赛/20260911 黑客松比赛/memory/HISTORY.md>) | 已发生的操作、文件与检查证据 |
+| RULES | [AGENTS.md](<../AGENTS.md>) | 项目接续与维护规则 |
+| ENTRY | [README.md](<../README.md>) | 人类阅读入口和真实启动命令 |
+| SPEC-L1 | [PRODUCT_SPEC.md](<../docs/PRODUCT_SPEC.md>) | 产品本意、功能、UI 与 Schema 要求 |
+| CURRENT | [CURRENT.md](<../memory/CURRENT.md>) | 现在进行到哪里、允许做什么、接下来做什么 |
+| DECISIONS | [DECISIONS.md](<../memory/DECISIONS.md>) | 决策的来源、理由和有效性 |
+| HISTORY | [HISTORY.md](<../memory/HISTORY.md>) | 已发生的操作、文件与检查证据 |
 
 本文件不复制任务状态。后续源码入口和正式 Schema 创建后，在这里登记真实路径和对应功能 ID，不预填不存在的文件。
 
@@ -64,3 +64,23 @@
 
 功能入口：PRODUCT_SPEC 的 FR-L1-COCREATE-01/02/03。实现定位：src/lib/story/field-contract.ts、src/lib/story/candidate.ts、src/features/story/use-workbench.ts。执行事件：HISTORY 的 OP-20260912-004。最新结果仅看 CURRENT；取舍见 DECISIONS 的 D014。
 
+
+
+## 完整写作与主编排
+
+- 完整产品需求：[PRD](../PRD.md)，FR-01 至 FR-10、AC-01 至 AC-14。
+- 调用和恢复契约：[MAIN_AGENT_RULES](../MAIN_AGENT_RULES.md)。
+- 服务端入口：src/lib/orchestration/main-agent.ts；API：src/app/api/story/main/route.ts。
+- 集成测试：src/lib/orchestration/main-agent.test.ts、model.test.ts。
+- 开发事件：OP-20260912-006；决策：D016。最新执行状态仍只维护在 CURRENT。
+
+
+## 本地写作产品入口
+
+- src/features/writing/：写作、作品、记忆与章节 UI。
+- src/lib/orchestration/manage.ts / tasks.ts / context.ts / locks.ts：管理、任务、上下文及锁恢复。
+- tests/writing-management.test.ts / context-and-locks.test.ts / ledger-recovery.test.ts：本地恢复与管理验证。
+- scripts/testing/e2e.mjs / writing.playwright：隔离浏览器验收；docs/REAL_MODEL_ACCEPTANCE.md / tests/real-model.test.ts：真实语义验收。
+- 决策 D017，事件 OP-20260912-007；当前结果只在 CURRENT 维护。
+
+- [本地版本验收报告](../docs/LOCAL_ACCEPTANCE.md)：OP007最终工程证据、真实结果和语义限制。

@@ -144,8 +144,9 @@ export class StoryAgents {
       try {
         const reply = await this.client.complete(system, repair ? `${user}\n${repairPrompt(repair, previous)}` : user);
         await this.ledger.settleAttempt(request.operation_id, reply.telemetry);
-        const parsed = parseModelJson(reply.content); previous = JSON.stringify(parsed); return decode(parsed);
+        previous = reply.content; const parsed = parseModelJson(reply.content); return decode(parsed);
       } catch (error) {
+        if (error instanceof StoryProviderError && error.error.code === "schema_error") await this.ledger.recordValidation(request.operation_id, error.error, previous);
         if (error instanceof StoryProviderError && error.telemetry) await this.ledger.settleAttempt(request.operation_id, error.telemetry);
         throw error;
       }
@@ -186,12 +187,13 @@ export class StoryAgents {
     });
   }
   async npcs(request: AgentRequest): Promise<NpcResult> {
-    const system = systemPrompt("NPC Agent", `{characters: WireCharacterProfiles, timeline_suggestions: WireTimelineEvent[], warnings: string[], assistant_message: string}. Create dynamic characters from user clues, the complete current world state, theme, tone, preset style, conflict, timeline, and world rules. Infer roles, motivations, relationships, secrets, speech styles, current states, and growth arcs that fit the authors theme and style. Preserve every existing named or unnamed user character and never silently reduce a requested count. If none are supplied, propose a coherent cast needed by the world and conflict.`, { common: WIRE_COMMON_SCHEMA, character: (WIRE_CHARACTERS_SCHEMA as Json).$defs, timeline_event: WIRE_TIMELINE_EVENT_SCHEMA });
+    const system = systemPrompt("NPC Agent", `{characters: {characters: WireCharacter[], relationships: WireRelationship[]}, timeline_suggestions: WireTimelineEvent[], warnings: string[], assistant_message: string}. The outer characters value MUST be a WireCharacterProfiles object, NOT an array; put the character array at characters.characters. Create dynamic characters from user clues, the complete current world state, theme, tone, preset style, conflict, timeline, and world rules. Infer roles, motivations, relationships, secrets, speech styles, current states, and growth arcs that fit the authors theme and style. Preserve every existing named or unnamed user character and never silently reduce a requested count. If none are supplied, propose a coherent cast needed by the world and conflict.`, { common: WIRE_COMMON_SCHEMA, characters: WIRE_CHARACTERS_SCHEMA, timeline_event: WIRE_TIMELINE_EVENT_SCHEMA });
     return this.run("npcs", request, system, `${contextText(request)}\nCurrent instruction: ${request.input}\nRecognition: ${json(request.recognition)}\nConfirmed removal constraints take priority: ${json(request.world.prohibited_content.filter((constraint) => constraint.text.source === "user_edited" && constraint.text.status === "confirmed"))}\nWorld wire: ${json(toWireWorld(request.world))}\nCurrent characters wire: ${json(toWireCharacters(request.characters))}`, (value) => {
       const out = exact(value, ["characters", "timeline_suggestions", "warnings", "assistant_message"]);
       if (typeof out.assistant_message !== "string" || !Array.isArray(out.warnings) || !out.warnings.every((warning) => typeof warning === "string")) invalid("NPC 说明或警告格式无效。");
       const assistantMessage = out.assistant_message as string;
-      assertIssues(validateWireCharacters(out.characters));
+      if (Array.isArray(out.characters)) invalid("characters 必须是包含 characters 数组与 relationships 数组的对象。", [issue("/characters", "expected {characters: [...], relationships: [...]}, not an array")]);
+      assertIssues(validateWireCharacters(out.characters).map(item => ({ ...item, path: "/characters" + (item.path === "/" ? "" : item.path) })));
       const characters = hydrateCharacters(out.characters, request.characters, request.input);
       const suggestions = assertSuggestions(out.timeline_suggestions, request.world, request.input);
       preserveExistingCharacters(request.characters, characters);
@@ -205,13 +207,14 @@ export class StoryAgents {
   }
   async revise(request: AgentRequest): Promise<RevisionResult> {
     if (!request.target) invalid("局部修改必须指定目标。", [issue("/target", "required")]);
-    const system = systemPrompt("Story Revision Agent", request.target === "npc" ? `{characters: WireCharacterProfiles, timeline_suggestions: WireTimelineEvent[], warnings: string[], assistant_message: string}` : `{world: WireStoryWorld, warnings: string[], assistant_message: string}${request.target === "timeline" ? ". For target timeline, change only world.timeline; preserve all other world fields byte-for-byte." : ""}`, request.target === "npc" ? { common: WIRE_COMMON_SCHEMA, character: (WIRE_CHARACTERS_SCHEMA as Json).$defs, timeline_event: WIRE_TIMELINE_EVENT_SCHEMA } : { common: WIRE_COMMON_SCHEMA, world: WIRE_WORLD_SCHEMA });
+    const system = systemPrompt("Story Revision Agent", request.target === "npc" ? `{characters: {characters: WireCharacter[], relationships: WireRelationship[]}, timeline_suggestions: WireTimelineEvent[], warnings: string[], assistant_message: string}. The outer characters value MUST be a WireCharacterProfiles object, NOT an array; put the character array at characters.characters` : `{world: WireStoryWorld, warnings: string[], assistant_message: string}${request.target === "timeline" ? ". For target timeline, change only world.timeline; preserve all other world fields byte-for-byte." : ""}`, request.target === "npc" ? { common: WIRE_COMMON_SCHEMA, characters: WIRE_CHARACTERS_SCHEMA, timeline_event: WIRE_TIMELINE_EVENT_SCHEMA } : { common: WIRE_COMMON_SCHEMA, world: WIRE_WORLD_SCHEMA });
     return this.run(`revise:${request.target}`, request, system, `${contextText(request)}\nTarget: ${request.target}; character_id: ${request.character_id ?? "none"}; Local revision instruction: ${request.input}\nWorld wire: ${json(toWireWorld(request.world))}\nCharacters wire: ${json(toWireCharacters(request.characters))}\nRecognition: ${json(request.recognition)}`, (value) => {
       if (request.target === "npc") {
         const out = exact(value, ["characters", "timeline_suggestions", "warnings", "assistant_message"]);
         if (typeof out.assistant_message !== "string" || !Array.isArray(out.warnings) || !out.warnings.every((warning) => typeof warning === "string")) invalid("修订说明格式无效。");
         const assistantMessage = out.assistant_message as string;
-        assertIssues(validateWireCharacters(out.characters));
+        if (Array.isArray(out.characters)) invalid("characters 必须是包含 characters 数组与 relationships 数组的对象。", [issue("/characters", "expected {characters: [...], relationships: [...]}, not an array")]);
+      assertIssues(validateWireCharacters(out.characters).map(item => ({ ...item, path: "/characters" + (item.path === "/" ? "" : item.path) })));
         const characters = hydrateCharacters(out.characters, request.characters, request.input);
         const suggestions = assertSuggestions(out.timeline_suggestions, request.world, request.input);
         if (request.character_id) restrictLocalRewrite(request.characters, characters, request.character_id);

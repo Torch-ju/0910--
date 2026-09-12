@@ -16,6 +16,7 @@ type Receipt = {
   state: "in_progress" | "success" | "failed" | "uncertain";
   attempts: ({ id: string; kind: "initial" | "repair"; state: string } & Partial<AttemptTelemetry>)[];
   result?: unknown;
+  validationFailures?: { issues: unknown; output: string; at: string }[];
   failure?: StoredFailure;
 };
 type Ledger = { version: 1; used: number; receipts: Record<string, Receipt> };
@@ -75,7 +76,7 @@ async function exclusively<T>(work: () => Promise<T>): Promise<T> {
 }
 
 export class RequestLedger {
-  constructor(private readonly path = resolve(process.cwd(), "runtime", "model-requests.json")) {}
+  constructor(private readonly path = process.env.MODEL_LEDGER_PATH ?? resolve(process.cwd(), "runtime", "model-requests.json")) {}
   private async load(): Promise<Ledger> {
     try {
       const value = JSON.parse(await readFile(this.path, "utf8")) as Ledger;
@@ -92,6 +93,24 @@ export class RequestLedger {
     await writeFile(temp, JSON.stringify(value), "utf8");
     await rename(temp, this.path);
   }
+  async hasCompleted(operationId: string): Promise<boolean> {
+    return exclusively(async () => (await this.load()).receipts[operationId]?.state === "success");
+  }
+  async recordValidation(operationId: string, issues: unknown, output: string) {
+    await exclusively(async () => {
+      const ledger = await this.load();
+      const receipt = ledger.receipts[operationId];
+      if (receipt) { (receipt.validationFailures ??= []).push({ issues, output, at: new Date().toISOString() }); await this.save(ledger); }
+    });
+  }
+  async statistics() {
+    return exclusively(async () => {
+      const ledger = await this.load(); const receipts = Object.values(ledger.receipts), attempts = receipts.flatMap(r => r.attempts);
+      const promptTokens = attempts.reduce((sum, a) => sum + (a.usage?.promptTokens ?? 0), 0), completionTokens = attempts.reduce((sum, a) => sum + (a.usage?.completionTokens ?? 0), 0);
+      const inputRate = Number(process.env.LLM_INPUT_PRICE_PER_MILLION), outputRate = Number(process.env.LLM_OUTPUT_PRICE_PER_MILLION);
+      return { calls: ledger.used, repairs: attempts.filter(a => a.kind === "repair").length, failures: receipts.filter(r => r.state === "failed" || r.state === "uncertain").length, durationMs: attempts.reduce((sum, a) => sum + (a.durationMs ?? 0), 0), promptTokens, completionTokens, usageMissing: attempts.filter(a => !a.usage?.totalTokens).length, estimatedCost: Number.isFinite(inputRate) && inputRate >= 0 && Number.isFinite(outputRate) && outputRate >= 0 ? (promptTokens * inputRate + completionTokens * outputRate) / 1_000_000 : null };
+    });
+  }
   async used(): Promise<number> { return exclusively(async () => (await this.load()).used); }
   async reserve(operationId: string, fingerprint: string, model: string, kind: "initial" | "repair" = "initial"): Promise<{ replay?: unknown }> {
     return exclusively(async () => {
@@ -107,6 +126,9 @@ export class RequestLedger {
         }
         if (existing.state === "failed") fail(existing.failure?.code ?? "provider_error", existing.failure?.userMessage ?? "先前请求失败。", 502, existing.failure?.retryable);
       }
+      const max = process.env.LLM_MAX_REQUESTS === undefined ? null : Number(process.env.LLM_MAX_REQUESTS);
+      if (max !== null && (!Number.isInteger(max) || max < 1)) fail("budget_configuration", "LLM_MAX_REQUESTS 必须为正整数或不配置。", 503);
+      if (max !== null && ledger.used >= max) fail("configured_budget_exhausted", "已达到配置的模型调用预算，请调整配置后恢复。", 429);
       ledger.used += 1;
       const receipt = existing ?? { fingerprint, state: "in_progress" as const, attempts: [] };
       receipt.state = "in_progress";

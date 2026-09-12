@@ -1,0 +1,64 @@
+{
+  "type": "object",
+  "required": [
+    "content",
+    "current_time",
+    "current_location",
+    "new_facts",
+    "timeline_updates",
+    "foreshadowing",
+    "chapter_end_hook"
+  ],
+  "properties": {
+    "content": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 16000
+    },
+    "current_time": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "current_location": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "new_facts": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2000
+      },
+      "maxItems": 40
+    },
+    "timeline_updates": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2000
+      },
+      "maxItems": 40
+    },
+    "foreshadowing": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2000
+      },
+      "maxItems": 40
+    },
+    "chapter_end_hook": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TranscriptionOutputV2",
+  "additionalProperties": false
+}

@@ -28,6 +28,7 @@ export type Candidate = { operation_id: string; base_revision: number; fingerpri
 export type ProviderStatus = { configured: boolean; model: string | null; used: number; limit: number; remaining: number; configuration_error?: string };
 export type WorkbenchModel = { snapshot: StorySnapshot; busy: boolean; stage: string; error: AppError | null; savedAt: string | null; candidate: Candidate | null; issues: ValidationIssue[]; candidateCanApply: boolean; autoNpcs: boolean; provider: ProviderStatus | null; canUndo: boolean; restored: boolean; canStartNewAttempt: boolean };
 export type WorkbenchActions = {
+  loadSnapshot?: (snapshot: StorySnapshot) => void;
   setPreset: (preset: PresetId) => void; setInput: (text: string) => void;
   generateFramework: () => Promise<void>; generateNpcs: () => Promise<void>;
   revise: (target: RevisionTarget, instruction: string, characterId?: string) => Promise<void>;

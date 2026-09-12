@@ -16,7 +16,7 @@ import {
 } from "../domain.js";
 import type { ExtractionContext, MemoryRepository, MemoryTransaction } from "../ports.js";
 
-interface MemoryState {
+export interface MemoryState {
   versions: Map<string, number>;
   processedTurns: ProcessedTurnRecord[];
   characters: CharacterRecord[];
@@ -38,6 +38,8 @@ interface MemoryState {
   }>;
 }
 
+export type SerializedMemoryState = Omit<MemoryState, "versions"> & { versions: [string, number][] };
+
 function emptyState(): MemoryState {
   return {
     versions: new Map(),
@@ -57,6 +59,12 @@ function emptyState(): MemoryState {
 
 export class InMemoryMemoryRepository implements MemoryRepository, MemoryTransaction {
   private state = emptyState();
+  exportCheckpoint(): SerializedMemoryState {
+    return { ...structuredClone(this.state), versions: [...this.state.versions] };
+  }
+  restoreCheckpoint(state: SerializedMemoryState): void {
+    this.state = { ...structuredClone(state), versions: new Map(state.versions) };
+  }
   private transactionTail: Promise<void> = Promise.resolve();
 
   async transaction<T>(_storyId: string, operation: (tx: MemoryTransaction) => Promise<T>): Promise<T> {

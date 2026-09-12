@@ -1,15 +1,15 @@
 # 书中人
 
-与 AI 共同建立故事的世界框架、NPC 和初始世界时间线，再把用户确认的设定交给未来主叙事 Agent。
+与 AI 共同建立故事世界、人物与初始时间线，并由服务端主 Agent 串联角色演绎、旁白、小说转写、人物记忆、摘要和章节归档。
 
-当前交付是第一层初始化工作台，不是连续写作系统。唯一当前进度见 [memory/CURRENT.md](memory/CURRENT.md)；本文负责入口、运行和结构说明，不另建进度台账。
+界面包含故事设定、连续写作、人物记忆、章节与作品列表。主 Agent 在本机服务端执行任务，页面查询实际步骤并支持刷新恢复。唯一当前进度见 [memory/CURRENT.md](memory/CURRENT.md)；本文负责入口、运行和结构说明，不另建进度台账。
 
 ## 运行
 
 在本目录使用现有 Node.js 环境：
 
 ```powershell
-npm install
+npm ci
 npm run dev
 ```
 
@@ -111,20 +111,12 @@ npm run build
 
 Schema 修改后通过 npm run schemas:generate 更新生成类型，再执行相关检查。不要手改 src/generated 中的文件。
 
-浏览器验收使用独立的 Playwright CLI 会话和合成数据，不消耗模型额度：
-
-```powershell
-npx --yes --package @playwright/cli playwright-cli -s=shuzhongren-check open http://127.0.0.1:3000 --browser chrome
-npx --yes --package @playwright/cli playwright-cli -s=shuzhongren-check run-code --filename scripts/browser-check.playwright
-npx --yes --package @playwright/cli playwright-cli -s=shuzhongren-check run-code --filename scripts/browser-finish.playwright
-```
-
-这些脚本会改写该独立会话的合成故事，不能在用户真实创作会话中执行。截图和下载证据位于 output/playwright。现有 npm run test:e2e 尚未接上这些 CLI 脚本，不应作为已通过的验收入口。
+浏览器验收使用 `npm run test:e2e`，详见下方“验证与交付”。旧 `scripts/browser-*.playwright` 为历史第一层验收资料，不是当前写作流程入口。
 
 ## 文档与接续开发
 
 - AGENTS.md：唯一项目 Agent 约定，补充全局规则，不另建 agent.md 或平行规则文件。
-- ARCHITECTURE (1).md：完整产品原始架构；不因第一层实现而改变完整产品本意。
+- ARCHITECTURE.md：完整产品原始架构；不因第一层实现而改变完整产品本意。
 - docs/PRODUCT_SPEC.md：第一层功能规格与执行边界。
 - memory/INDEX.md：开发记忆导航与权威路径。
 - memory/CURRENT.md：唯一当前进度、证据、预算与下一项工作。
@@ -136,7 +128,7 @@ npx --yes --package @playwright/cli playwright-cli -s=shuzhongren-check run-code
 
 ## 独立人物记忆模块
 
-`memory-agent/` 是独立 Node.js 包，保留自己的依赖、TypeScript 配置和测试。它已合入仓库，但尚未接入工作台的运行流程。根应用类型检查排除此目录；开发该模块时执行：
+`memory-agent/` 是独立 Node.js 包，保留自己的依赖、TypeScript 配置和测试。主 Agent 已通过 src/lib/orchestration/memory.ts 复用其抽取、记忆和画像逻辑；正式写作界面可读取人物、证据、通知并提交人工修正。根应用只编译实际引用的模块；开发该模块时执行：
 
 ```bash
 cd memory-agent
@@ -147,3 +139,58 @@ npm run build
 ```
 
 接口和数据库说明见 [memory-agent/README.md](memory-agent/README.md)。
+
+
+## 完整 PRD 与主 Agent
+
+- [完整 PRD](PRD.md) 与 [调用规则](MAIN_AGENT_RULES.md) 随本 Git 仓库交付，上级工作区保留同步副本。
+- 服务端入口：`src/lib/orchestration/main-agent.ts`；子职责与契约：同目录 `agents.ts`、`contracts.ts`、`prompts.ts`。
+- API：`GET /api/story/main?story_id=...` 查询；POST `initialize` 接收已确认完整快照；POST `turn` 接收 `story_id/operation_id/base_revision/input`，可设 `close_chapter` 与显式 `retry_failed`。
+- 旧 framework/npcs/revise/field API 返回兼容，内部统一交给主 Agent 路由。不会把生成候选直接确认或写入叙事。
+- 写作会话存于 `runtime/stories`；同故事目录锁、逐步检查点、原子提交。人物记忆从检查点继续，完整日志可用于重建，不重复模型调用；默认不接 PostgreSQL。
+- `runs[].status=blocked` 表示轮次未提交；HTTP 200 不等于生成成功。显式重试可复用 done 步骤，失败模型步骤的新尝试可能重复费用。
+- 兼容同步 API 保留；写作 UI 使用本地响应后任务，没有账户鉴权。生产发布需要补齐权限、存储和独立任务执行方案。
+- `npm run dev`、`npm run build` 明确使用 webpack，通过 extensionAlias 解析独立 memory-agent 包的 NodeNext `.js` 源码引用。根应用直接声明 Zod 运行依赖；独立记忆包仍按自己的命令单独开发。
+
+针对主编排检查：`npm test -- src/lib/orchestration`。此命令使用模拟模型，真实模型质量与费用不在自动化测试结论中。
+
+
+## 写作与恢复
+
+1. 填写故事想法，生成并采用世界和人物候选；也可手动填写。
+2. 解决关键问题、确认设定和开局，点击“开始写作”。
+3. 输入行动或对白，点击“推进故事”。正文只在整轮提交成功后进入作品。
+4. 刷新只查询状态；失败时可以恢复已完成步骤，或放弃该轮后继续。恢复按钮会提示可能的模型费用。
+5. “停止等待”只暂停浏览器查询；“取消后续生成”在当前模型步骤保存后停止；“放弃此轮”保留审计但不发布中间正文。
+6. 章节可以随轮次结束，也可在没有新剧情时独立归档。作品页可导出 Markdown 和完整 JSON 备份。
+
+完整备份包含正文、摘要、记忆日志、修正和回执；恢复会校验并重建派生缓存，不覆盖同 ID 已有作品。备份含创作内容，请自行妥善保管。写作中改设定需载入、编辑、确认、核对差异并同步；不能通过初始化覆盖剧情。
+
+## 验证与交付
+
+```sh
+npm test
+npm run lint
+npm run typecheck
+npm run schemas:check
+npm run build
+npm run test:e2e
+npm run test:real
+```
+
+- `test:e2e` 使用已安装 Tabbit 的稳定 CLI，自动启动隔离的本机应用和合成模型，数据写入临时目录，不使用真实模型。可用 `TABBIT_CLI` 指定启动器路径；需要浏览器运行权限。默认端口 3112 / 4013。导出校验覆盖生成的 Markdown 内容，浏览器原生下载事件不作为该脚本的断言。
+- `test:real` 明确调用真实模型：读取 `.env.local`，执行武侠与魔幻的世界/NPC及各三轮叙事；会产生费用。没有配置时在调用前失败。报告、每步账本和作品保存在 `runtime/evaluation/`，语义评审仍按 [真实验收标准](docs/REAL_MODEL_ACCEPTANCE.md) 检查实际正文。
+- `PRD.md`、`MAIN_AGENT_RULES.md` 在仓库内提供完整交付版本；工作区上级同名文件为同步交付副本。修改后运行 `npm run docs:sync` 更新存在的上级副本。
+- 默认是可信的本机单用户应用，启动脚本绑定 127.0.0.1。公网发布所需的账户、访问权限、数据库和部署目标未由这套本机文件存储替代。
+
+## 可选运行配置
+
+| 变量 | 默认 / 含义 |
+| --- | --- |
+| STORY_DATA_DIR | runtime/stories，故事和任务持久目录 |
+| MODEL_LEDGER_PATH | runtime/model-requests.json，请求账本，不能随意清空 |
+| NARRATIVE_CONTEXT_CHARS | 60000，权威设定、摘要、记忆和近期正文的字符预算；不是精确 token 限额 |
+| LLM_MAX_REQUESTS | 不配置即无应用次数上限；配置正整数为该账本的累计调用上限，包含修复 |
+| LLM_INPUT_PRICE_PER_MILLION / LLM_OUTPUT_PRICE_PER_MILLION | 可选，用于已报告 token 的费用估算；使用相同货币单位，不配置时费用未知 |
+
+任务由本地 Next.js 进程在响应后执行；断开网页不会停止任务。进程重启后需要用户明确恢复，系统不会自动重发结果不明的付费请求。只自动回收同一主机上确认已死亡进程的锁；没有归属信息的旧锁需停服、备份并检查。当前不是分布式任务队列。
