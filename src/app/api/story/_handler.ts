@@ -6,7 +6,7 @@ import { validateCharacters, validateWorld } from "@/lib/story/validation";
 import { isStableOperationId, StoryProviderError } from "@/lib/ai/model";
 
 const statusFor = (code: string): number => ({ invalid_request: 400, idempotency_conflict: 409, operation_unavailable: 409, schema_error: 422, request_budget_exhausted: 429, request_timeout: 504, configuration_error: 503, ledger_error: 503 }[code] ?? 502);
-const generic: AppError = { code: "internal_error", userMessage: "服务端处理请求时发生错误。", retryable: false };
+const generic: AppError = { code: "internal_error", userMessage: "服务端处理这次请求时出错了。", retryable: false };
 
 export function errorResponse(error: unknown): NextResponse<{ error: AppError }> {
   if (error instanceof OrchestrationError) return NextResponse.json({ error: { code: error.code, userMessage: error.message, retryable: false } }, { status: error.status });
@@ -27,7 +27,7 @@ export async function agentRequest(request: Request): Promise<AgentRequest> {
     body = JSON.parse(raw);
   } catch (error) {
     if (error instanceof StoryProviderError) throw error;
-    invalid("请求必须是 JSON 对象。");
+    invalid("请求格式不对。");
   }
   if (!body || typeof body !== "object" || Array.isArray(body)) invalid("请求必须是 AgentRequest 对象。");
   const candidate = body as Partial<AgentRequest>;
@@ -40,7 +40,7 @@ export async function agentRequest(request: Request): Promise<AgentRequest> {
   if (candidate.field !== undefined && (!candidate.field || typeof candidate.field !== "object" || (candidate.field.document !== "world" && candidate.field.document !== "characters") || typeof candidate.field.path !== "string" || !candidate.field.path.startsWith("/") || candidate.field.path.length > 1_000)) invalid("field 必须包含合法 document 和 JSON Pointer path。");
   const worldIssues = validateWorld(candidate.world);
   const characterIssues = validateCharacters(candidate.characters);
-  if (worldIssues.length || characterIssues.length) throw new StoryProviderError({ code: "invalid_request", userMessage: "提交的故事状态未通过数据契约校验。", retryable: false, fieldErrors: [...worldIssues, ...characterIssues] }, 400);
+  if (worldIssues.length || characterIssues.length) throw new StoryProviderError({ code: "invalid_request", userMessage: "提交的故事设定没通过检查。", retryable: false, fieldErrors: [...worldIssues, ...characterIssues] }, 400);
   return candidate as AgentRequest;
 }
 import { OrchestrationError } from "@/lib/orchestration/contracts";

@@ -2,11 +2,11 @@
 
 ## 当前工作单元
 
-- operation_id / last_operation_id：OP-20260913-030。
-- 目标：新增极简主对话入口作为默认页，设定信息不再平铺；统一正文与输入区实现；修正过期请求文案。
+- operation_id / last_operation_id：OP-20260913-032。
+- 目标：把交互式生成与角色对话切到可选快模型，并核实供应商密钥状态。
 - 操作状态：CHECKED。
 - 用户授权：实施本地功能及真实文本模型验收；公开部署仍需目标环境，用户已明确授权将全部代码和文件推送到仓库主分支。
-- 影响文件：src/features/writing/{WritingApp,ConversationHome,NarrativeProse,NarrativeCompose}.tsx、writing.css、src/features/story/use-workbench.ts、StoryWorkbenchShell.tsx 及其测试、README.md、PRD.md、docs/PRODUCT_SPEC.md、memory/CURRENT.md、memory/HISTORY.md、memory/DECISIONS.md。
+- 影响文件：src/features/writing/{ConversationHome,NarrativeCompose,NarrativeProse,WritingApp,GenerationStatus,step-labels,MemoryPanel,ConversationWindow}.tsx、writing.css、src/features/story/use-workbench.ts、src/lib/{ai/model,story/state,story/candidate}.ts、测试与 scripts/testing/writing.playwright、memory/*。
 
 ## 本轮交付与验证
 
@@ -192,3 +192,28 @@ BLOCKED：真实调用返回 `httpStatus 401`（402ms，`provider_error`，证�
 ## OP-20260913-030 · CHECKED · 极简主对话入口
 
 默认页改为「对话」页：一个输入框依次驱动世界、人物、开篇与续写，世界与人物只显示一张摘要卡片，细节在「故事设定」工作台；导航为对话 / 故事设定 / 写作台 / 我的作品，正文与输入区由 NarrativeProse 与 NarrativeCompose 共用，避免两处实现漂移。revision_conflict 文案改为“上一轮生成已过期”，重试按钮改为“按当前草稿重新生成”。156 项离线测试（新增 7 项）、Lint、本次改动文件的 tsc 检查 PASS；真实浏览器空存储验证默认页、导航与“开始故事”确实发起 framework 请求。合成模型无 framework/NPC 画像分支，全链路由 jsdom 集成测试覆盖；生产构建仅被 runtime/dev/demo-wuxia.test.ts（另一会话 harness）类型错误拦截。下一步：供应商恢复可用后，用户在真实模型下刷新体验对话页首轮生成。
+
+
+## OP-20260913-031 · CHECKED · 等待标记与 C 端文案
+
+新增等待／演化标记（脉冲圆点 + 阶段 + 已等待秒数 + 逐步 chips，见 GenerationStatus 与 step-labels），世界与人物生成、叙事演化都会显示；对话页、写作台、我的作品、记忆面板、角色对话与主要服务端提示改为用户语言，去掉 NPC/主 Agent/快照/校验/计费 等术语，动作更直白（继续写、接下来写什么、接着写上次没写完的）。158 项离线测试（本轮新增 2 项）、Lint、本次改动文件的 tsc 检查 PASS。真实模型：.env.local 已配置 api.openai-next.com + doubao-seed-2-0-pro-260215，但 9/13 两次真实调用均 401，最近成功为 9/12 17:28–17:47，需用户提供有效密钥后才能做真实首轮验收。下一步：设定工作台（story/ui）字段文案与剩余服务端提示继续去术语化；密钥恢复后跑真实首轮。
+
+
+## OP-20260913-032 · CHECKED · 快模型开关
+
+新增 LLM_MODEL_FAST（可选）：设定生成与角色对话走快模型，正文/记忆/摘要仍用主模型；未设置时自动等于 LLM_MODEL，行为不变。.env.example 与 README 已登记。供应商侧结论：/v1/models 用现有密钥返回 401，密钥在账号级被拒，需用户提供有效密钥后才能选模型与做真实首轮验收；当前无法验证任何模型名。158 项测试、Lint、本次改动文件 tsc 检查 PASS。
+
+
+## OP-20260913-032 · CHECKED · flash 与世界演化
+
+LLM_MODEL_FAST=deepseek-v4-flash-vision-exp 已写入 .env.local 并重启服务；设定类 Agent 与角色对话走 flash，正文/记忆/摘要仍走主模型；新增 model-config.test.ts 锁定该行为。世界演化：每轮写完后用快速模型把新地点/事件/势力补进世界年表（自动进入工作台设定），对话页给出一键「并入故事」把新版设定同步进叙事会话，下一轮即使用。lint 干净、161 测试通过。未验证：世界演化链路缺自动化测试，且真实模型仍 401 无法跑通。下一步：为世界演化补集成测试；密钥恢复后先验证 flash 与整条共创链路。
+
+
+## OP-20260913-033 · CHECKED · 真实密钥接入
+
+新密钥已写入 .env.local 并重启服务；新增 tests/model-probe.test.ts（RUN_REAL_MODEL=1 时运行）实测 text 与 fast 两个角色都返回内容 —— 密钥有效、deepseek-v4-flash-vision-exp 可用，401 不再复现。lint 干净、161 项测试通过。下一步：真实模型下跑首轮生成、世界演化与多轮角色对话。
+
+
+## OP-20260913-034 · CHECKED · 真实首轮实测（供应商限流）
+
+flash 路由经账本证实生效，但 deepseek-v4-flash-vision-exp 在结构化世界观生成上返回空内容 → 设定类 Agent 已改回主模型，flash 只保留短交互。真实首轮被供应商侧 429/524 阻断，结论 NOT_RUN。另修复失败后 pending 残留导致刷新自动重发（重复计费）的问题。lint 干净、161 测试通过。下一步：供应商恢复后重跑首轮 + 世界演化 + 多轮对话；设定工作台文案与世界演化集成测试仍待做。

@@ -98,7 +98,7 @@ function ErrorBanner({ model, actions }: WorkbenchProps) {
   const errors = [model.provider?.configuration_error, model.error?.userMessage].filter(Boolean) as string[];
   if (errors.length === 0) return null;
   const canRetry = model.canStartNewAttempt && (model.provider?.remaining ?? 0) > 0;
-  return <section className="sw-errors" role="alert"><CircleAlert size={18} /><div><b>生成遇到问题</b>{errors.map((error) => <p key={error}>{error}</p>)}{canRetry && <button type="button" className="sw-button sw-button--quiet" onClick={() => { void actions.startNewAttempt(); }}>继续生成</button>}</div><button type="button" aria-label="关闭错误提示" onClick={actions.dismissError}><X size={18} /></button></section>;
+  return <section className="sw-errors" role="alert"><CircleAlert size={18} /><div><b>生成遇到问题</b>{errors.map((error) => <p key={error}>{error}</p>)}{canRetry && <button type="button" className="sw-button sw-button--quiet" onClick={() => { void actions.startNewAttempt(); }}>按当前草稿重新生成</button>}</div><button type="button" aria-label="关闭错误提示" onClick={actions.dismissError}><X size={18} /></button></section>;
 }
 
 export function StoryWorkbench({ model, actions }: WorkbenchProps) {

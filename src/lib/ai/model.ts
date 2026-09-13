@@ -36,11 +36,15 @@ const fail = (code: string, message: string, status: number, retryable = false):
 
 const isLocalHttp = (url: URL) => url.protocol === "http:" && ["localhost", "127.0.0.1", "::1"].includes(url.hostname);
 const imageOnlyModel = (model: string) => /seedream|seedance|(?:^|[-_])image(?:[-_]|$)|(?:^|[-_])video(?:[-_]|$)|sora|wanx|flux|midjourney/i.test(model);
+// Some routed models answer with an empty message when response_format is sent; list those explicitly instead of guessing.
+const skipsResponseFormat = (model: string, env: Record<string, string | undefined> = process.env) => (env.LLM_NO_RESPONSE_FORMAT_MODELS ?? "").split(",").map(value => value.trim()).filter(Boolean).includes(model);
 export const isStableOperationId = (value: string) => /^[a-z][a-z0-9_-]{2,95}$/.test(value) && !["__proto__", "prototype", "constructor"].includes(value);
 
-export function readModelConfig(env: Record<string, string | undefined> = process.env): ModelConfig {
+export function readModelConfig(env: Record<string, string | undefined> = process.env, role: "text" | "fast" = "text"): ModelConfig {
   const base = env.LLM_BASE_URL?.trim();
-  const model = env.LLM_MODEL?.trim();
+  // Interactive steps (setup agents and role dialogue) may run on a faster model; long prose keeps the main one.
+  const fastModel = env.LLM_MODEL_FAST?.trim();
+  const model = role === "fast" && fastModel ? fastModel : env.LLM_MODEL?.trim();
   const apiKey = env.LLM_API_KEY?.trim();
   if (!base || !model || !apiKey) return fail("configuration_error", "服务端文字模型尚未配置。", 503);
   const configuredBase: string = base;
@@ -202,7 +206,7 @@ export class ChatCompletionsClient {
       const response = await this.fetcher(this.config.baseUrl, {
         method: "POST",
         headers: { "content-type": "application/json", authorization: `Bearer ${this.config.apiKey}` },
-        body: JSON.stringify({ model: this.config.model, messages: [{ role: "system", content: system }, { role: "user", content: user }], temperature: 0.4, ...(this.jsonMode ? {response_format:{type:"json_object"}} : {}), ...(progress && process.env.LLM_STREAM !== "false" ? {stream:true} : {}), ...(this.maxTokens === null ? {} : { max_tokens: this.maxTokens }) }),
+        body: JSON.stringify({ model: this.config.model, messages: [{ role: "system", content: system }, { role: "user", content: user }], temperature: 0.4, ...(this.jsonMode && !skipsResponseFormat(this.config.model) ? {response_format:{type:"json_object"}} : {}), ...(progress && process.env.LLM_STREAM !== "false" ? {stream:true} : {}), ...(this.maxTokens === null ? {} : { max_tokens: this.maxTokens }) }),
         signal: controller.signal,
       });
       if (!response.ok) throw new StoryProviderError(appError("provider_error", "模型服务暂时不可用。", response.status >= 500), response.status === 429 ? 429 : 502, telemetry(response.status));
@@ -217,8 +221,8 @@ export class ChatCompletionsClient {
     } catch (error) {
       if (error instanceof StreamProgressError) throw new StoryProviderError(appError("preview_save_failed", error.message), 503, telemetry());
       if (error instanceof StoryProviderError) throw error;
-      if ((error as Error).name === "AbortError") throw new StoryProviderError(appError("request_timeout", `模型请求在 ${Math.ceil(timeoutMs / 1000)} 秒后超时，结果状态不可确定。`, true), 504, telemetry());
-      throw new StoryProviderError(appError("provider_error", "模型请求失败，结果状态不可确定。", true), 502, telemetry());
+      if ((error as Error).name === "AbortError") throw new StoryProviderError(appError("request_timeout", `AI 服务 ${Math.ceil(timeoutMs / 1000)} 秒内没有响应，这次结果的去向未知。`, true), 504, telemetry());
+      throw new StoryProviderError(appError("provider_error", "AI 服务调用失败，这次结果的去向未知。", true), 502, telemetry());
     } finally { clearTimeout(timeout); }
   }
 }

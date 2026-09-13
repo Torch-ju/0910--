@@ -7,7 +7,7 @@ import { DATA_BOUNDARY } from "./prompts";
 
 export interface JsonAgentClient {
   hasCompleted?(operationId: string): Promise<boolean>;
-  generate(operationId: string, system: string, input: unknown, schema: AnySchema, refine?: (output: unknown) => void, progress?: (text:string)=>Promise<void>, options?: {jsonMode:boolean}): Promise<unknown>;
+  generate(operationId: string, system: string, input: unknown, schema: AnySchema, refine?: (output: unknown) => void, progress?: (text:string)=>Promise<void>, options?: {jsonMode:boolean; fast?:boolean}): Promise<unknown>;
 }
 /** A shared paid-call ledger also covers new narrative agents and their single schema repair. */
 export class NarrativeModelClient implements JsonAgentClient {
@@ -16,9 +16,9 @@ export class NarrativeModelClient implements JsonAgentClient {
   async generate(operationId: string, system: string, input: unknown, schema: AnySchema, refine?: (output: unknown) => void, progress?: (text:string)=>Promise<void>, options?: {jsonMode:boolean}): Promise<unknown> {
     return automaticRetry(this.ledger.path,operationId,fingerprintFor(system,{input,schema,...(options?{options}:{})},1),id => this.generateOnce(id,system,input,schema,refine,progress,options));
   }
-  private async generateOnce(operationId: string, system: string, input: unknown, schema: AnySchema, refine?: (output: unknown) => void, progress?: (text:string)=>Promise<void>, options?: {jsonMode:boolean}): Promise<unknown> {
+  private async generateOnce(operationId: string, system: string, input: unknown, schema: AnySchema, refine?: (output: unknown) => void, progress?: (text:string)=>Promise<void>, options?: {jsonMode:boolean; fast?:boolean}): Promise<unknown> {
     const validate = new Ajv2020({ allErrors: true, strict: false }).compile(schema);
-    const config = readModelConfig();
+    const config = readModelConfig(process.env, options?.fast ? "fast" : "text");
     const fingerprint = fingerprintFor(system, { input, schema, ...(options?{options}:{}) }, 1);
     const prompt = `${system}\n${DATA_BOUNDARY}\n输出契约：${JSON.stringify(schema)}`;
     let user = fitNarrativeRequest(prompt, input);

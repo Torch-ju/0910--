@@ -17,7 +17,7 @@ npm run dev
 
 已有依赖时直接运行第二条即可。开发和生产服务均应只在本机使用，不涉及对外发布。默认地址为 http://127.0.0.1:3000。
 
-打开方式：在项目根目录执行 npm run dev，然后用浏览器访问 http://127.0.0.1:3000。不要双击某个 HTML 文件；这是 Next.js 应用，页面入口是 src/app/page.tsx，它会加载完整工作台。修改页面布局时主要查看 src/features/story/ui/StoryWorkbenchShell.tsx，交互和本地保存逻辑在 src/features/story/use-workbench.ts。
+打开方式：在项目根目录执行 npm run dev，也可以用 start.py 一键启动，然后浏览器访问 http://127.0.0.1:3000。不要双击某个 HTML 文件；这是 Next.js 应用，页面入口是 src/app/page.tsx，它提供“对话 / 故事设定 / 写作台 / 我的作品”四页。对话首页在 src/features/writing/ConversationHome.tsx，正文区与输入区由 NarrativeProse.tsx、NarrativeCompose.tsx 共享（对话页与写作台共用，改这里会同时影响两处）。设定工作台在 src/features/story/ui/StoryWorkbenchShell.tsx，设定交互和本地保存逻辑在 src/features/story/use-workbench.ts。
 
 生产预览：
 
@@ -36,6 +36,7 @@ npm run start
 | --- | --- |
 | LLM_BASE_URL | OpenAI 兼容服务根地址；本轮使用 https://api.openai-next.com |
 | LLM_MODEL | 使用 .env.local 中配置的文本模型名称 |
+| LLM_MODEL_FAST | 可选的快速模型：世界观/人物生成与角色对话使用，正文、记忆、摘要仍用 LLM_MODEL；留空则与 LLM_MODEL 相同 |
 | LLM_API_KEY | 仅在本地环境文件中配置，不在对话和文档中重复 |
 | LLM_REQUEST_LIMIT | 已移除应用层额度上限；服务商自身配额仍可能限制请求 |
 | LLM_TIMEOUT_MS | 可配置请求超时，默认 180000 毫秒 |
@@ -49,6 +50,9 @@ npm run start
 AI 自动推断：提交作者想法后，框架 Agent 会结合主题、故事风格和已有世界状态补全世界规则、冲突、地点、组织、历史与开局；世界候选通过校验后，NPC Agent 会结合完整世界状态自动推断角色阵容、动机、关系、秘密、说话方式、当前状态和成长方向。所有自动补全均以 AI 推断/AI 建议标记，仍需作者编辑、接受或拒绝。
 
 ## 使用流程
+ 默认入口是“对话”页：写下故事想法，主 Agent 会依次生成世界、人物与开篇，之后续写、NPC 对话与正文都在同一个输入框继续。需要逐字段编辑时进入“故事设定”工作台；“写作台”保留正文、人物与记忆、章节与伏笔、设定同步四个面板；“我的作品”管理已有故事。世界、人物与时间线在对话里只以一张摘要卡片出现，详细信息在设定工作台查看。
+
+
 
 1. 选择西方魔幻或东方武侠，输入自己的故事方向与限制。
 2. 生成世界框架，查看理解反馈、澄清问题及世界历史和开局时间线。

@@ -385,3 +385,52 @@ OP024发布恢复：再次重试git fetch origin成功，普通git push origin m
 - 验证 PASS：156 项离线测试（新增 ConversationHome 5 项、WritingApp 集成 2 项）；Lint 无问题；tsc 对本次改动文件无错误；真实浏览器（独立 playwright 会话、空存储）确认默认页为对话页、导航可切换、空输入时按钮禁用，点击“开始故事”确实发出 POST /api/story/framework。
 - 边界：合成模型 scripts/testing/model-server.mjs 不含 framework 与 NPC 画像分支，无法用它跑“一句话开始”全链路，该链路改由 jsdom 集成测试覆盖；生产构建被 runtime/dev/demo-wuxia.test.ts（另一会话的 Git 忽略 harness）类型错误拦住，webpack 编译本身 PASS。该 framework 真实调用在本次验证中同样失败（账本 used 24→25），与 OP-20260913-029 记录的 401 一致。
 - 未提交、未推送。
+
+
+## OP-20260913-031：等待标记与 C 端文案
+
+- 新增等待／演化标记 GenerationStatus：脉冲圆点 + 当前阶段 + 已等待秒数 + 逐步状态 chips；对话页在世界与人物生成、叙事演化两种情况下都显示，进度文案与步骤标签抽到 step-labels.ts 供对话页、写作台共用；CSS 动画在 prefers-reduced-motion 下关闭。
+- C 端文案统一：对话页、写作台、我的作品、记忆面板、角色对话窗口、主 Agent 阶段提示与主要服务端提示改为用户语言。去术语（NPC→角色、主 Agent→书中人、快照/校验/计费→存档/检查/额度），关键动作更直白（推进故事→继续写，续写要求（可留空）→接下来写什么（可留空），恢复未完成轮次（可能计费）→接着写上次没写完的（会消耗额度），生成遇到问题→按当前草稿重新生成）。同步更新单元测试与 scripts/testing/writing.playwright 断言。
+- 真实模型状态核实：.env.local 指向 api.openai-next.com，模型 doubao-seed-2-0-pro-260215，密钥已配置（51 字符）；/api/story/status 返回 configured=true。但 9/13 的两次真实调用均 HTTP 401（09:19、09:28，约 0.35 秒），最近成功记录为 9/12 17:28–17:47；未配置单价，费用无法估算。判断为密钥失效或被拒，非应用缺陷。
+- PASS：158 项离线测试（本轮新增 2 项）、Lint、tsc 对本次改动文件无错误。未提交、未推送。
+
+
+## OP-20260913-032：快模型开关与供应商 401 核实
+
+- 新增可选快模型：readModelConfig(env, role) 支持 LLM_MODEL_FAST；世界观/人物等设定生成（StoryAgents）与角色对话（npcDialogue）走 fast，正文、记忆、摘要、章节仍走 LLM_MODEL。JSON 客户端新增 options.fast，账本按实际模型记录。.env.example 与 README 模型表已登记。
+- 供应商核实：用 .env.local 的密钥请求 GET https://api.openai-next.com/v1/models 返回 401 Unauthorized，说明密钥在账号级被拒，而非模型名或应用缺陷；因此无法列出可用模型、也无法真实生成。历史成功记录为 9/12 17:28–17:47，9/13 两次调用均为 401（约 0.35 秒）。
+- PASS：158 项离线测试（含 fast 角色选择与图像模型拒绝 3 条断言）、Lint、本次改动文件 tsc 检查。未把 flash 模型名写入 .env.local（等待用户提供可用模型名或有效密钥）。未提交、未推送。
+
+
+## OP-20260913-032：flash 模型接入与世界演化闭环
+
+- flash 接入：.env.local 增加 LLM_MODEL_FAST=deepseek-v4-flash-vision-exp。代码侧接线原本已在：readModelConfig(env,"fast")、设定类 Agent 默认走 fast、角色对话 fast:true；正文/记忆/摘要仍走 LLM_MODEL。新增 src/lib/ai/model-config.test.ts 锁定 fast 角色解析、空值回退与状态接口仍显示主模型；服务已重启加载新环境变量。真实可用性未验证（当前密钥 401）。
+- 世界演化闭环：每轮叙事写完后，客户端用快速模型（revise target=timeline）把新出现的地点/事件/势力补进世界年表，结果按现有自动应用流程进入工作台设定并保留来源；对话页出现「世界观已经有新的演化（第 N 版），并入故事后下一轮写作就会用上」与一键「并入故事」，点击后 sync 进该故事的叙事会话，下一轮上下文即包含它。每轮只触发一次且记录在 localStorage（shuzhongren.evolved.<storyId>），刷新不重复计费；纯角色对话轮不触发。
+- 验证：lint 干净、161 项离线测试通过、tsc 对本次改动文件无错误。世界演化链路尚无自动化测试，且未在真实模型下跑通（密钥 401）。
+- 未提交、未推送。
+
+
+## OP-20260913-033：真实密钥接入与模型探测
+
+- 用户提供新的 LLM_API_KEY（api.openai-next.com）。已写入 .env.local（该文件被 gitignore，未写入文档、日志或提交），服务已重启加载。
+- 新增 tests/model-probe.test.ts：默认跳过，RUN_REAL_MODEL=1 时对 text 与 fast 两个角色各发一次最小请求。实测两条均返回内容（约 5 秒内完成）→ 密钥有效，且 deepseek-v4-flash-vision-exp 在中转可用；此前 401 的历史不再复现。
+- 该探测直接使用 ChatCompletionsClient，不写请求账本；真实业务调用仍走账本与幂等回执。
+- 门禁：lint 干净、161 项离线测试通过（6 项条件跳过，含本探测）、/api/story/status configured=true。
+- 下一步：用真实模型跑一句话→世界观/人物/开篇、一轮后的世界演化（年表增长 + 并入故事）、多轮角色对话（走 flash）。未提交、未推送。
+
+
+## OP-20260913-034：真实链路首轮实测与两处修复
+
+- 密钥生效：新 LLM_API_KEY 写入 .env.local 后，真实探测（tests/model-probe.test.ts，RUN_REAL_MODEL=1）显示 text 与 fast 两个角色都能返回内容；401 不再复现。
+- 真实首轮实测（主推版武侠输入 877 字，经对话页粘贴并提交）：账本确认 framework 调用确实打到 deepseek-v4-flash-vision-exp（HTTP 200，42.6 秒），但回执为 incomplete_output（输出为空或被过滤）→ flash 不适合结构化世界观生成。已把设定类 Agent 改回主模型（src/lib/ai/agents.ts），flash 仅保留在角色对话等短交互。
+- 供应商侧随后阻断：主模型两次真实调用分别 HTTP 429（限流，45.5 秒）与 HTTP 524（网关超时，125.2 秒，回执 uncertain）。首轮验收未完成，结论 NOT_RUN，账本 used 26→29。
+- 修复：run() 的失败分支在服务端已给出明确错误时清空 pending（此前失败后 pending 仍保留，导致每次刷新页面自动重发并再次计费——27→29 两次调用即由此产生）。这也是一部分 revision_conflict 提示的成因。
+- 门禁：lint 干净、161 项离线测试通过（6 项条件跳过）。未提交、未推送。
+
+
+## OP-20260913-035：flash 作为主模型的实测结论
+
+- 按用户要求把 LLM_MODEL 与 LLM_MODEL_FAST 都设为 deepseek-v4-flash-vision-exp，并新增 LLM_NO_RESPONSE_FORMAT_MODELS 规避 response_format（该模型收到 response_format 会返回空内容）。真实探测三条全过（含小 JSON，约 15 秒三次调用），确认 base URL 用 https://api.openai-next.com/v1。
+- 但用同一模型跑真实完整世界观生成两次均失败：HTTP 200、42.6 秒与 41.4 秒、回执 incomplete_output（空内容或被过滤）。同一请求在小 JSON 场景正常 → 判断为该模型在长结构化输出上把预算消耗在推理、最终没有内容（vision-exp 变体），不是应用缺陷。
+- 处理：LLM_MODEL 恢复为 doubao-seed-2-0-pro-260215（已验证可产出合法结构化输出，15.8 秒），flash 保留在 fast 角色并继续使用 response_format 规避名单。门禁：lint 干净、162 项测试通过（8 项条件跳过）。
+- 未完成：一句话→世界观/人物/开篇、世界演化、多轮对话的真实链路验收（卡在第一步）。建议下一步先给 flash 提高或去掉 max_tokens（或换非 vision 的 flash）再对照；探测脚本 tests/model-probe.test.ts 可直接复用。

@@ -136,7 +136,7 @@ export class StoryAgents {
   private readonly ledger: RequestLedger;
   private readonly client: ChatCompletionsClient;
   constructor(deps: AgentDeps = {}) {
-    this.config = deps.config ?? readModelConfig(deps.env);
+    this.config = deps.config ?? readModelConfig(deps.env, "text");
     this.ledger = deps.ledger ?? new RequestLedger();
     this.client = new ChatCompletionsClient(this.config, deps.fetcher, undefined, true);
   }

@@ -27,7 +27,7 @@ export function useWorkbench():{model:WorkbenchModel;actions:WorkbenchActions}{
     queueMicrotask(()=>{
       try{
         const raw=localStorage.getItem(STORAGE_KEY);
-        if(raw){const data=deserializeWorkspace(raw);update({snapshot:data.current,previous:data.previous,candidate:data.candidate,pending:data.pending,savedAt:data.saved_at,restored:true,error:null,stage:data.pending?"正在自动恢复上次生成":"已恢复上次创作"});}
+        if(raw){const data=deserializeWorkspace(raw);update({snapshot:data.current,previous:data.previous,candidate:data.candidate,pending:data.pending,savedAt:data.saved_at,restored:true,error:null,stage:data.pending?"正在继续上次没完成的生成":"已恢复上次的创作"});}
         else update({restored:true});
       }catch(e){update({restored:true,storageBroken:true,error:errorOf(e),stage:"本地记录需检查，尚未覆盖"});}
       void refreshStatus();
@@ -40,7 +40,7 @@ export function useWorkbench():{model:WorkbenchModel;actions:WorkbenchActions}{
       const stamp=now();
       localStorage.setItem(STORAGE_KEY,serializeWorkspace({version:1,current:s.snapshot,previous:s.previous,candidate:s.candidate,pending:s.pending,saved_at:stamp}));
       update({savedAt:stamp,error:s.error?.code==="SAVE_FAILED"?null:s.error});
-    }catch(e){update({error:{code:"SAVE_FAILED",userMessage:"本地保存失败。内容仍在当前页面，可重试或导出。"+(e instanceof Error?" "+e.message:""),retryable:true}});}
+    }catch(e){update({error:{code:"SAVE_FAILED",userMessage:"本地保存失败，内容还在页面上，可以重试或导出。"+(e instanceof Error?" "+e.message:""),retryable:true}});}
   },[update]);
   useEffect(()=>{
     if(!state.restored||state.storageBroken)return;
@@ -65,17 +65,17 @@ export function useWorkbench():{model:WorkbenchModel;actions:WorkbenchActions}{
     }catch(e){
       // Keep rejected output recoverable without leaving a hidden candidate that blocks later requests.
       try {localStorage.setItem(STORAGE_KEY+".archive.candidate."+candidate.operation_id,serializeWorkspace({version:1,current:old,previous:latest.current.previous,candidate,pending:null,saved_at:now()}));}
-      catch {update({error:{code:"SAVE_FAILED",userMessage:"生成结果备份失败，已保留在当前页面。",retryable:true}});return false;}
-      update({candidate:null,pending:null,error:errorOf(e),stage:"生成结果未通过校验，已备份；可修改后重新生成"});save();return false;
+      catch {update({error:{code:"SAVE_FAILED",userMessage:"生成结果没能备份，内容还在页面上。",retryable:true}});return false;}
+      update({candidate:null,pending:null,error:errorOf(e),stage:"生成结果没通过检查，已备份；可以改完再生成一次"});save();return false;
     }
   },[update,save]);
   const run=useCallback(async function run(endpoint:AgentEndpoint,input:string,target?:AgentRequest["target"],characterId?:string,field?:FieldTarget,resume?:PendingRequest):Promise<void>{
     const s=latest.current;if(s.busy)return;
-    if(resume && s.snapshot.snapshot_revision !== resume.body.base_revision){update({error:{code:"revision_conflict",userMessage:"草稿已修改，请基于当前内容重新生成。",retryable:false}});return;}
-    if(!input.trim()){update({error:{code:"EMPTY_INPUT",userMessage:"先写下你的故事想法。",retryable:false}});return;}
+    if(resume && s.snapshot.snapshot_revision !== resume.body.base_revision){update({error:{code:"revision_conflict",userMessage:"上一轮生成已过期：这之后内容又改过。按当前内容重新生成会再消耗一次额度。",retryable:false}});return;}
+    if(!input.trim()){update({error:{code:"EMPTY_INPUT",userMessage:"先写下一句话吧。",retryable:false}});return;}
     const sourceCandidate = endpoint === "npcs" && s.candidate?.origin === "framework" ? prepareCandidate(s.snapshot,s.candidate) : null;
     if(sourceCandidate?.issues.length){update({error:{code:"CANDIDATE_CONFLICT",userMessage:sourceCandidate.issues[0].message,retryable:false}});return;}
-    if(endpoint==="npcs"&&!(sourceCandidate?.candidate.world ?? s.snapshot.world).title.value.trim()){update({error:{code:"WORLD_REQUIRED",userMessage:"请先构建或填写世界框架，再生成 NPC。",retryable:false}});return;}
+    if(endpoint==="npcs"&&!(sourceCandidate?.candidate.world ?? s.snapshot.world).title.value.trim()){update({error:{code:"WORLD_REQUIRED",userMessage:"先生成或填写世界观，再来生成角色。",retryable:false}});return;}
     if(!s.snapshot.input.trim()){update({error:{code:"SHARED_IDEA_REQUIRED",userMessage:"请先填写共同故事想法；局部要求不能替代故事总设定。",retryable:false}});return;}
     if(field){try{getFieldContract(s.snapshot.world,s.snapshot.characters,field);}catch(e){update({error:errorOf(e)});return;}}
     if(s.candidate&&!sourceCandidate&&endpoint!=="framework"){update({error:{code:"CANDIDATE_PENDING",userMessage:"请先采用或放弃当前候选修改，再发起新的生成。",retryable:false}});return;}
@@ -87,7 +87,7 @@ export function useWorkbench():{model:WorkbenchModel;actions:WorkbenchActions}{
     if(s.pending?.endpoint===endpoint&&s.pending.fingerprint===fingerprint)body.operation_id=s.pending.body.operation_id;
     const userMessage={id:uid("message"),role:"user" as const,content:input,created_at:now()};
     restoredOperations.current.add(body.operation_id);
-    update({busy:true,error:null,pending:{endpoint,body,fingerprint},snapshot:{...original,messages:s.pending?.fingerprint===fingerprint?original.messages:[...original.messages,userMessage]},stage:endpoint==="framework"?"故事框架 Agent 正在理解并整理世界与历史":endpoint==="npcs"?"NPC Agent 正在依据世界与时间线塑造人物":endpoint==="field"?"正在结合共同故事上下文生成字段建议":"正在生成局部修改建议"});
+    update({busy:true,error:null,pending:{endpoint,body,fingerprint},snapshot:{...original,messages:s.pending?.fingerprint===fingerprint?original.messages:[...original.messages,userMessage]},stage:endpoint==="framework"?"正在理解你的想法，整理世界观与历史":endpoint==="npcs"?"正在依据世界观与年表塑造角色":endpoint==="field"?"正在结合故事上下文生成建议":"正在生成修改建议"});
     save();
     if(latest.current.storageBroken||latest.current.error?.code==="SAVE_FAILED"){update({busy:false,stage:"请求状态未能保存，尚未调用模型"});return;}
     try{
@@ -111,7 +111,7 @@ export function useWorkbench():{model:WorkbenchModel;actions:WorkbenchActions}{
       update({candidate,pending:null,busy:false,snapshot:{...current,messages:[...current.messages,{id:uid("message"),role:"assistant",content:result.assistant_message,created_at:now()}]}});
       const applied=applyGenerated(candidate);
       if(applied && endpoint==="framework" && latest.current.autoNpcs) await run("npcs","根据输入自动识别人物，补全 NPC 画像及必要的前史时间线建议。信息不足时提出待确认建议，不要求用户先回答问题。");
-    }catch(e){update({busy:false,error:errorOf(e),stage:"本次生成未完成，原始内容已保留"});}
+    }catch(e){const detail=errorOf(e);/* A terminal API answer must not auto-resume on the next load: that would spend another call without a click. */update(e instanceof RequestError?{busy:false,error:detail,stage:"本次生成未完成，原始内容已保留，可再点一次重试",pending:null}:{busy:false,error:detail,stage:"本次生成未完成，原始内容已保留"});}
     finally{void refreshStatus();}
   },[update,refreshStatus,save,applyGenerated]);
   const restoredOperations=useRef(new Set<string>());
@@ -166,14 +166,14 @@ export function useWorkbench():{model:WorkbenchModel;actions:WorkbenchActions}{
         const prepared=prepareCandidate(old,c);
         if(prepared.issues.length)throw new StoryError("CANDIDATE_CONFLICT",prepared.issues[0].message,prepared.issues);
         const next=acceptCandidate(old,prepared.candidate);
-        update({snapshot:next,previous:old,candidate:null,error:null,savedAt:null,stage:"候选已加入草案，可编辑并确认"});save();
+        update({snapshot:next,previous:old,candidate:null,error:null,savedAt:null,stage:"新内容已填入，可以直接编辑"});save();
         const framework=c.origin==="framework"||(!c.origin&&old.characters.characters.length===0&&!!next.recognition&&!!next.world.title.value.trim());
         if(framework&&current.autoNpcs&&!latest.current.error){
           void run("npcs","根据共同故事想法和刚采用的世界、历史、开局需要生成 NPC 候选。");
         }
       }catch(e){update({error:errorOf(e)});}
     },
-    rejectCandidate(){update({candidate:null,error:null,stage:"已放弃候选，保留当前设定"});},
+    rejectCandidate(){update({candidate:null,error:null,stage:"已放弃这次生成，保留原来的设定"});},
     acceptTimelineSuggestion(id){change(s=>mutateSnapshot(s,uid("op"),"accept-event:"+id,"用户采用 NPC 前史事件建议",next=>{const e=next.timeline_suggestions.find(e=>e.event_id===id);if(!e)throw new StoryError("NOT_FOUND","事件建议不存在。");if(next.world.timeline.some(v=>v.event_id===id))throw new StoryError("DUPLICATE_ID","此事件已经存在。");walkFacts(e,f=>{if(typeof f.value==="string"&&f.value.trim()){f.status="confirmed";f.updated_at=now();}});next.world.timeline.push(e);for(const c of next.characters.characters)if(e.related_character_ids.includes(c.character_id))c.timeline_event_ids=[...new Set([...c.timeline_event_ids,id])];next.timeline_suggestions=next.timeline_suggestions.filter(e=>e.event_id!==id);}));},
     rejectTimelineSuggestion(id){change(s=>mutateSnapshot(s,uid("op"),"reject-event:"+id,"用户拒绝 NPC 前史事件建议",next=>{next.timeline_suggestions=next.timeline_suggestions.filter(e=>e.event_id!==id);}));},
     undo(){

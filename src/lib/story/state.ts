@@ -19,7 +19,7 @@ export function syncGrowth(snapshot: StorySnapshot) {
 export function mutateSnapshot(snapshot: StorySnapshot, operationId: string, fingerprint: string, summary: string, mutate: (next:StorySnapshot)=>void, baseRevision = snapshot.snapshot_revision, protectLocked = true): StorySnapshot {
   const prior=snapshot.operations.find(o=>o.operation_id===operationId);
   if(prior){if(prior.fingerprint!==fingerprint)throw new StoryError("OPERATION_CONFLICT","同一操作标识不能用于不同修改。");return snapshot;}
-  if(baseRevision!==snapshot.snapshot_revision)throw new StoryError("STALE_REVISION","故事已经有新的修改，这份旧结果不能覆盖当前设定。");
+  if(baseRevision!==snapshot.snapshot_revision)throw new StoryError("STALE_REVISION","故事已经有新的修改，这份旧结果不会覆盖当前设定。");
   const next=structuredClone(snapshot);
   mutate(next); syncGrowth(next);
   const issues=validatePair(next.world,next.characters);

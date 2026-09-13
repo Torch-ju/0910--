@@ -55,7 +55,7 @@ describe("StoryWorkbench", () => {
   it("offers an explicit new-billed retry only when the hook permits it", () => {
     const current = model(); current.canStartNewAttempt = true; const handler = actions();
     render(<StoryWorkbench model={current} actions={handler} />);
-    fireEvent.click(screen.getByRole("button", { name: "继续生成" }));
+    fireEvent.click(screen.getByRole("button", { name: "按当前草稿重新生成" }));
     expect(handler.startNewAttempt).toHaveBeenCalledOnce();
   });
 });

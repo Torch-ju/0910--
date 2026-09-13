@@ -141,6 +141,9 @@ describe("StoryAgents", () => {
   it("uses a bounded configurable timeout while retaining a 180 second default", () => {
     expect(readModelConfig(env).timeoutMs).toBe(180_000);
     expect(readModelConfig({ ...env, LLM_TIMEOUT_MS: "2000" }).timeoutMs).toBe(2_000);
+    expect(readModelConfig({ ...env, LLM_MODEL_FAST: "fast-text" }, "fast").model).toBe("fast-text");
+    expect(readModelConfig(env, "fast").model).toBe(readModelConfig(env).model);
+    expect(() => readModelConfig({ ...env, LLM_MODEL_FAST: "seedream-4" }, "fast")).toThrow(StoryProviderError);
     expect(() => readModelConfig({ ...env, LLM_TIMEOUT_MS: "999" })).toThrow(StoryProviderError);
     expect(() => readModelConfig({ ...env, LLM_TIMEOUT_MS: "300001" })).toThrow(StoryProviderError);
   });

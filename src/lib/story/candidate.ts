@@ -50,7 +50,7 @@ function merge(base: unknown, proposed: unknown, current: unknown, path: string,
 export function prepareCandidate(snapshot: StorySnapshot, candidate: Candidate): { candidate: Candidate; issues: ValidationIssue[] } {
   const issues: ValidationIssue[] = [];
   if (candidate.base && (candidate.base.story_idea !== snapshot.input || candidate.base.preset_id !== snapshot.preset_id)) issues.push({ code: "STORY_CONTEXT_CHANGED", path: "/input", message: "共同故事想法或场景已改变；请保留原稿，再按新想法生成建议。" });
-  if (candidate.base_revision !== snapshot.snapshot_revision && !candidate.base) issues.push({ code: "LEGACY_CANDIDATE_STALE", path: "/revision", message: "这份旧候选没有完整比对基线，无法安全合并；请保留原稿后重新生成，不会自动扣费。" });
+  if (candidate.base_revision !== snapshot.snapshot_revision && !candidate.base) issues.push({ code: "LEGACY_CANDIDATE_STALE", path: "/revision", message: "这次生成缺少可比对的基础，无法安全合并；原稿已保留，可以重新生成一次。" });
   let proposed = structuredClone(candidate);
   if (candidate.base && candidate.base_revision !== snapshot.snapshot_revision) {
     proposed = {
