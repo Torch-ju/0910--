@@ -5,3 +5,5 @@
 仅输出 JSON，结构如下：
 {"title":"标题","synopsis":"完整情节梗概","ending":"具体结局","threads":["必须收束的核心线索"],"chapters":[{"title":"第一章","purpose":"本章叙事作用","events":["具体事件及因果"],"node_ids":["节点ID"],"closes":[]}],"connections":[{"source_id":"ID","target_id":"ID","relation":"follows","reason":"承接原因"}],"assumptions":[]}
 至少包含两章。不要输出小说正文。
+
+每章即页面的一节正文，目标1200字，允许1000–1400字（不含标题和空白，含标点）。规划时把复杂情节拆成更多节，每节只安排适量事件；写作时控制整节累计字数，不是每次续写1200字。不要删掉关键因果来凑字数；不设全书总字数上限。

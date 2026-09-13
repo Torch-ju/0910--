@@ -100,6 +100,44 @@ async def write_novel(runner, rid, context):
                 current["parts"].append(part.model_dump())
                 current["finished"] = part.chapter_finished
                 save()
+            # Count visible characters, excluding whitespace and the chapter heading.
+            section_text = "\n\n".join(p["content"] for p in current["parts"])
+            for length_attempt in range(3):
+                length = len("".join(section_text.split()))
+                if 1000 <= length <= 1400:
+                    break
+                if length_attempt == 2:
+                    raise AppError(
+                        "SECTION_LENGTH_INVALID", "本节尚未调整到约1200字，已保存正文，可继续写作重试。", 422
+                    )
+                adjusted = await call(
+                    NovelPart,
+                    "novel_length_v1.md",
+                    {
+                        **base,
+                        "_task": "novel_length",
+                        "section": section_text,
+                        "current_chapter": chapter.model_dump(),
+                        "actual_length": length,
+                        "closed_threads": list({t for p in current["parts"] for t in p["closed_threads"]}),
+                    },
+                )
+                if not adjusted.chapter_finished or set(adjusted.closed_threads) != {
+                    t for p in current["parts"] for t in p["closed_threads"]
+                }:
+                    raise AppError(
+                        "SECTION_LENGTH_INVALID", "本节调整结果不完整，原文已保留，请继续写作。", 422
+                    )
+                section_text = adjusted.content
+                if 1000 <= len("".join(section_text.split())) <= 1400:
+                    state.setdefault("length_revision_history", []).append(copy.deepcopy(current))
+                    adjusted.assumptions = list(
+                        dict.fromkeys(
+                            adjusted.assumptions + [a for p in current["parts"] for a in p["assumptions"]]
+                        )
+                    )
+                    current["parts"] = [adjusted.model_dump()]
+                    save()
         state["stage"] = "reviewing"
         ledger = [
             {

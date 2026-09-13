@@ -19,6 +19,13 @@ class Writer:
 
     async def complete(self, context, reserve, schema, prompt, mock):
         reserve()
+        if context.get("_task") == "novel_length":
+            return NovelPart(
+                content="船到渡口，主角终于见到了师父。" * 80,
+                summary="保留本节事件",
+                chapter_finished=True,
+                closed_threads=context["closed_threads"],
+            ), {"calls": []}
         assert "草蛇灰线" in context["skill"]["instructions"]
         assert "表达DNA" in context["skill"]["instructions"]
         if schema is NovelPlan:
@@ -97,7 +104,7 @@ def test_full_story_more_than_12_chapters_and_chunk_continuation(client):
     assert result["status"] == "succeeded", result
     story = agent(client, pid)["stories"][0]
     assert len(story["chapters"]) == 13
-    assert len(story["chapters"][0]["content"]) > 15000
+    assert all(1000 <= len("".join(c["content"].split())) <= 1400 for c in story["chapters"])
     assert writer.reviews == 2 and writer.plans == 1
     assert writer.writes == 28
     assert client.get(f"/api/v1/projects/{pid}/novel-progress").json()["run"]["stage"] == "complete"
