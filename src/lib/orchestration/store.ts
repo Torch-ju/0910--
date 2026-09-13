@@ -47,7 +47,15 @@ export class SessionStore {
     const payload = JSON.stringify(session);
     try {
       await writeFile(temporary, JSON.stringify({ checksum: digest(payload), payload }), { mode: 0o600 });
-      await rename(temporary, target);
+      // Windows can refuse rename while another handle (a poll read) holds the target open; retry briefly.
+      for (let attempt = 0; ; attempt++) {
+        try { await rename(temporary, target); break; }
+        catch (error) {
+          const code = (error as NodeJS.ErrnoException).code ?? "";
+          if (attempt >= 4 || !["EPERM", "EBUSY", "ENOTEMPTY", "EACCES"].includes(code)) { await rm(temporary, { force: true }); throw error; }
+          await new Promise(resolve => setTimeout(resolve, 30 * (attempt + 1)));
+        }
+      }
     } finally { await rm(temporary, { force: true }); }
   }
 }

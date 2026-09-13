@@ -121,7 +121,7 @@ export class MainAgent {
         } : checked(await this.agents.narrator(id, { ...common, character_output: roles.content }), NARRATOR_SCHEMA), direct);
         let prose = await step<ProseOutput>("transcription", async id => {
           let lastPreview=0;
-          const progress=async(raw:string)=>{if(raw && Date.now()-lastPreview<700)return;lastPreview=Date.now();const current=activeRun.steps.transcription!;current.preview=prosePreview(raw);if(current.preview && !current.first_content_at)current.first_content_at=new Date().toISOString();await this.store.save(session);};
+          const progress=async(raw:string)=>{if(raw && Date.now()-lastPreview<700)return;lastPreview=Date.now();const current=activeRun.steps.transcription!;current.preview=prosePreview(raw);if(current.preview && !current.first_content_at)current.first_content_at=new Date().toISOString();try{await this.store.save(session);}catch(error){console.warn("preview save skipped:",error instanceof Error?error.message:String(error));}};
           const proseInput = { story_state: { cast: common.cast, opening: common.opening, snapshot: creativeSnapshot(session.snapshot), current_time: session.current_time, current_location: session.current_location, recent_prose: recent, known_memory: common.known_memory }, summary: session.summary.summary, user_input: command.input, character_output: roles.content, narrator_output: narrator };
           const cue = pendingDialogue(session);
           const refine = (output: unknown) => validateDialogue(output, session, command.reply_to ? command.input : undefined);
