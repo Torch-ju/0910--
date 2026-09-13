@@ -357,3 +357,11 @@ OP024发布恢复：再次重试git fetch origin成功，普通git push origin m
 - CHECKED：文件回读核对通过（CJK、代码块、章节完整）；未发起模型调用，生成质量、耗时与 recognition 实际输出未验证，不作为演示已通过的证据。
 - 边界：未改应用代码、Schema、依赖、模型配置与持久配置；`examples/*.json` 仍为 Schema 示例；未提交推送。
 - 环境注记：本机 `apply_patch.bat` 包装无法传递多行中文补丁（返回 “The last line of the patch must be '*** End Patch'”），改用 `codex.exe --codex-run-as-apply-patch` 直接传参写入成功；未修改任何工具配置。
+
+
+## OP-20260913-028：提交并推送 main
+
+- APPLIED：本地提交 066ecf23“feat: add one-click start script and wuxia demo input”，包含 start.py、examples/demo-wuxia-input.md（新增）、README.md、memory/CURRENT.md、memory/HISTORY.md，共 5 文件、236 插入、4 删除。
+- CHECKED：`git push origin main` 回执 3cdb2b3d..066ecf23；`git ls-remote origin refs/heads/main` 返回 066ecf23eefab19f892fe5bfdc0876f41066970f，与本地 `git rev-parse HEAD` 一致。未强推、未改全局配置，暂存内容不含 .env*、runtime/、output/、.next。
+- 边界：next-env.d.ts 的 `.next/dev/types` 自动改写、`0913 存储/0913 存储.zip`（约490MB）与根目录 8 个 `modify_*.py` 临时脚本未纳入提交；纳入或删除需用户明确指示。
+- 未变边界：PRODUCT-04 真实长篇语义验收仍 PARTIAL，PRODUCT-06 公网发布仍 TODO，分别需要真实模型费用与目标环境。

@@ -2,11 +2,11 @@
 
 ## 当前工作单元
 
-- operation_id / last_operation_id：OP-20260913-027。
-- 目标：新增演示输入文档 `examples/demo-wuxia-input.md`（东方武侠：小虾米 · 慕容雪），供本地演示与测试使用。
+- operation_id / last_operation_id：OP-20260913-028。
+- 目标：把 OP-026/OP-027 的交付（`start.py` 与演示输入文档）提交并推送到 origin/main。
 - 操作状态：CHECKED。
 - 用户授权：实施本地功能及真实文本模型验收；公开部署仍需目标环境，用户已明确授权将全部代码和文件推送到仓库主分支。
-- 影响文件：examples/demo-wuxia-input.md（新增）、memory/HISTORY.md、memory/CURRENT.md。
+- 影响文件：start.py、examples/demo-wuxia-input.md、README.md、memory/HISTORY.md、memory/CURRENT.md（提交 066ecf23）。
 
 ## 本轮交付与验证
 
@@ -166,3 +166,12 @@ OP024后续核验：再次重试时直连fetch与push已成功，GitHub main更�
 ## OP-20260913-027 · CHECKED · 演示输入文档
 
 新增 `examples/demo-wuxia-input.md`：主推版（约900字）、短版（约280字）、可选加戏三句、后续轮次输入示例（NPC 停点回应／续写要求／收束当前章）、预期识别边界与来源合规说明。输入对齐既有契约：主角由用户控制、慕容雪作为 NPC 人物线索、五条边界对应内容边界，末尾留白对应待确认问题；预设沿用 `eastern_wuxia`。CHECKED：文件已回读核对，CJK 与代码块完整；未发起模型调用，生成质量、耗时与 recognition 实际输出均未验证，不混同为演示通过。未改应用代码、Schema、依赖与模型配置；`examples/*.json` 仍是 Schema 示例。下一步：用户刷新网站后按文档步骤粘贴主推版走一遍演示（如需真实复验会产生模型费用）；真实长篇语义验收与公网发布等待办不变。
+
+
+## OP-20260913-028 · CHECKED · 提交并推送 main
+
+本地提交 066ecf23（5 文件、236 插入）：start.py、examples/demo-wuxia-input.md（新增）、README.md、memory/CURRENT.md、memory/HISTORY.md。`git push origin main` 回执 3cdb2b3d..066ecf23；`git ls-remote origin refs/heads/main` 返回 066ecf23eefab19f892fe5bfdc0876f41066970f，与本地 HEAD 一致，远端已更新。未强推、未改全局配置，未包含 .env*、runtime/、output/ 与 .next。
+
+未纳入本次提交：next-env.d.ts（Next 开发模式自动改写为 .next/dev/types，属生成噪声）；`0913 存储/0913 存储.zip`（约490MB 备份包，不适合入仓）；根目录 8 个 `modify_*.py` 临时改写脚本（历史工具脚本，记忆与文档均未引用）。纳入或清理需用户明确指示，删除仍按审批处理。
+
+下一步：用户在本地按 `examples/demo-wuxia-input.md` 的步骤粘贴主推版走一遍演示；PRODUCT-04 真实长篇语义验收（PARTIAL）与 PRODUCT-06 公网发布（TODO）分别需要真实模型费用与目标环境。
