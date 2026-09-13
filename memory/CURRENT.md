@@ -2,11 +2,11 @@
 
 ## 当前工作单元
 
-- operation_id / last_operation_id：OP-20260913-023。
-- 目标：所有生成改动默认应用，移除待确认面板，保留编辑与撤销。
+- operation_id / last_operation_id：OP-20260913-027。
+- 目标：新增演示输入文档 `examples/demo-wuxia-input.md`（东方武侠：小虾米 · 慕容雪），供本地演示与测试使用。
 - 操作状态：CHECKED。
 - 用户授权：实施本地功能及真实文本模型验收；公开部署仍需目标环境，用户已明确授权将全部代码和文件推送到仓库主分支。
-- 影响文件：写作 UI、主 Agent / 管理 API、记忆恢复、测试、交付文档与本开发记忆。
+- 影响文件：examples/demo-wuxia-input.md（新增）、memory/HISTORY.md、memory/CURRENT.md。
 
 ## 本轮交付与验证
 
@@ -156,3 +156,13 @@ OP024结果：代码已提交本地main，4cb377a（69文件）。普通git push
 
 
 OP024后续核验：再次重试时直连fetch与push已成功，GitHub main更新至96a39f4，代码提交4cb377a已包含。此前超时为历史状态；同时只读发现系统代理127.0.0.1:7890，可按请求通过git -c http.proxy使用，未改全局配置。不能把代理认定为本次直连恢复的已证实原因。
+
+
+## OP-20260913-026 · CHECKED · 本地一键启动脚本
+
+新增根目录 `start.py`（双击或 `python start.py`）：检查依赖、启动 `npm run dev`、等待 `/api/story/status` 返回200、自动打开浏览器；端口被占用时区分“已在运行”与其他程序；Ctrl+C 结束 npm 与 node 进程树。本机 Python 3.12.3 实跑一次成功：Next.js Ready in 504ms、探针200、页面200，浏览器已打开，服务保持运行（exec 64988）。下一步：用户可直接双击 start.py 启动；应用功能与真实模型验收边界不变。
+
+
+## OP-20260913-027 · CHECKED · 演示输入文档
+
+新增 `examples/demo-wuxia-input.md`：主推版（约900字）、短版（约280字）、可选加戏三句、后续轮次输入示例（NPC 停点回应／续写要求／收束当前章）、预期识别边界与来源合规说明。输入对齐既有契约：主角由用户控制、慕容雪作为 NPC 人物线索、五条边界对应内容边界，末尾留白对应待确认问题；预设沿用 `eastern_wuxia`。CHECKED：文件已回读核对，CJK 与代码块完整；未发起模型调用，生成质量、耗时与 recognition 实际输出均未验证，不混同为演示通过。未改应用代码、Schema、依赖与模型配置；`examples/*.json` 仍是 Schema 示例。下一步：用户刷新网站后按文档步骤粘贴主推版走一遍演示（如需真实复验会产生模型费用）；真实长篇语义验收与公网发布等待办不变。

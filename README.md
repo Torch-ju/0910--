@@ -6,7 +6,9 @@
 
 ## 运行
 
-在本目录使用现有 Node.js 环境：
+最简单的方式：双击本目录下的 `start.py`（或在本目录执行 `python start.py`）。脚本会检查依赖、启动 `npm run dev`，等待 http://127.0.0.1:3000 就绪后自动打开浏览器；服务已在运行时只打开浏览器；按 Ctrl+C 或关闭窗口即停止服务。
+
+也可以使用现有 Node.js 环境手动执行：
 
 ```powershell
 npm ci

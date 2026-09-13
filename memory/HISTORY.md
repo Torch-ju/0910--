@@ -342,3 +342,18 @@
 用户授权提交并推送所有当前项目改动。149项测试、Lint、生产构建/类型、diff检查PASS；密钥排除检查PASS。GitHub HTTPS连接超时；本地main代码提交4cb377a（69文件）。普通push等待35秒超时，fetch无响应已结束，远端未确认更新。操作FAILED，仅网络发布受阻，本地成果完整保留。
 
 OP024发布恢复：再次重试git fetch origin成功，普通git push origin main回执81e8f52..96a39f4，远端main已包含完整代码；此前失败记录保留为历史。工作区干净，未强推、未上传密钥或运行数据。
+
+
+## OP-20260913-026：本地一键启动脚本
+
+- 新增根目录 `start.py`，可双击或执行 `python start.py`：检查 node_modules（缺失时 npm ci）、启动 `npm run dev`、轮询 `/api/story/status` 直到 HTTP 200、自动打开浏览器；端口被其他程序占用时提示而不误判；Ctrl+C 通过 taskkill /T 结束 npm 与 node 进程树。
+- CHECKED：本机 Python 3.12.3 实跑一次成功；Next.js Ready in 504ms，探针 GET /api/story/status 200，页面 GET / 200，浏览器已打开；服务保持运行（exec 64988）。
+- 边界：只封装 README 已登记的 npm run dev，未改应用代码、依赖或模型调用；未提交推送。
+
+
+## OP-20260913-027：演示输入文档
+
+- APPLIED：新增 `examples/demo-wuxia-input.md`，作为演示与测试用的「故事想法」输入。主推版约900字：主角“小虾米”（用户控制、武功低微、在渡口讨生活）、慕容雪（大小姐、剑法与轻功高强、单相思对象）、世界与恩怨留白、开局上元灯会画面、五条边界、四个待定问题；另附短版约280字、可选加戏三句、后续轮次输入示例（NPC 停点回应／续写要求／收束当前章）、预期识别边界与来源合规说明。预设沿用 `eastern_wuxia`。
+- CHECKED：文件回读核对通过（CJK、代码块、章节完整）；未发起模型调用，生成质量、耗时与 recognition 实际输出未验证，不作为演示已通过的证据。
+- 边界：未改应用代码、Schema、依赖、模型配置与持久配置；`examples/*.json` 仍为 Schema 示例；未提交推送。
+- 环境注记：本机 `apply_patch.bat` 包装无法传递多行中文补丁（返回 “The last line of the patch must be '*** End Patch'”），改用 `codex.exe --codex-run-as-apply-patch` 直接传参写入成功；未修改任何工具配置。
