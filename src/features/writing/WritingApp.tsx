@@ -65,6 +65,8 @@ export function WritingApp(props: WorkbenchProps) {
   const open = useCallback(async (id: string) => {
     const next = await api<StorySession>("/api/story/main?story_id=" + encodeURIComponent(id));
     setSession(next); setView("chat"); setMemory(null); setPanel("reading"); setTask(null); setWaiting(true);
+    // Opening a story must also load its world/characters into the workbench; otherwise the world card and the setting diff compare two different stories.
+    if (latestModel.current.snapshot.world.story_id !== id && props.actions.loadSnapshot) props.actions.loadSnapshot(next.snapshot);
     localStorage.setItem(ACTIVE, id); setInput(localStorage.getItem(draftKey(id)) ?? "");
     const pending = localStorage.getItem(taskKey(id));
     if (pending) {
@@ -83,6 +85,9 @@ export function WritingApp(props: WorkbenchProps) {
     if (!taskId || !storyId || !waiting || !["queued", "running"].includes(taskStatus ?? "")) return;
     let stopped = false; let timer: ReturnType<typeof setTimeout>;
     const poll = async () => {
+      const created = task?.created_at ? Date.parse(task.created_at) : 0;
+      // A locally restored task whose server record is gone would otherwise poll forever.
+      if (created && Date.now() - created > 8 * 60_000) { setTask(null); localStorage.removeItem(taskKey(storyId)); setError("这次生成已经过期（服务端不再有对应任务），可以重新开始一轮。"); return; }
       try {
         const current = await api<NarrativeTask>("/api/story/tasks?task_id=" + taskId);
         const next = await api<StorySession>("/api/story/main?story_id=" + storyId);
@@ -98,7 +103,7 @@ export function WritingApp(props: WorkbenchProps) {
       if (!stopped) timer = setTimeout(poll, 1500);
     };
     void poll(); return () => { stopped = true; clearTimeout(timer); };
-  }, [taskId, taskStatus, storyId, waiting, update]); // task content is immutable for its ID
+  }, [taskId, taskStatus, task?.created_at, storyId, waiting, update]); // task content is immutable for its ID
   const running = !!task && ["queued", "running"].includes(task.status);
   const unfinished = session?.runs.find(run => !["succeeded", "abandoned"].includes(run.status));
   const lastRun = unfinished ?? session?.runs.at(-1);
@@ -165,15 +170,24 @@ export function WritingApp(props: WorkbenchProps) {
     void initialize();
   }, [session, props.model.busy, props.model.candidate, props.model.error, props.model.snapshot.world.title.value, initialize]);
   // 世界演化：每一轮写完后，用快速模型把新出现的地点/事件/势力补进年表；并入故事由用户一键确认。
-  const worldAhead = !!session && props.model.snapshot.world.story_id === session.snapshot.world.story_id && props.model.snapshot.snapshot_revision > session.snapshot.snapshot_revision;
+  // 新项目：清掉所有故事相关的本地状态（草稿、任务、演化标记、活动故事），再重置设定工作台。
+  const clearStoryState = () => {
+    const stale = storyId ?? localStorage.getItem(ACTIVE);
+    if (stale) { localStorage.removeItem(draftKey(stale)); localStorage.removeItem(taskKey(stale)); localStorage.removeItem(evolvedKey(stale)); }
+    localStorage.removeItem(ACTIVE);
+    setSession(null); setTask(null); setInput(""); setError("");
+    startRequested.current = false;
+    props.actions.restart();
+    setView("chat");
+  };  const worldAhead = !!session && props.model.snapshot.world.story_id === session.snapshot.world.story_id && props.model.snapshot.snapshot_revision > session.snapshot.snapshot_revision;
   const onSyncWorld = () => void manage({ action: "sync", snapshot: props.model.snapshot, confirmed: true } as ManageCommand);
-  const title = session?.snapshot.world.title.value || "未命名故事";
+  const title = session?.snapshot.world.title.value || "还没有名字的故事";
   const exportAll = () => download(title + ".md", "# " + title + "\n\n" + (session?.turns.map(turn => turn.prose.content).join("\n\n") ?? ""));
   const cancelTask = () => void attempt(async () => { await api("/api/story/tasks", { action: "cancel", task_id: task!.task_id }); setError("已请求停止；正在进行的生成会先保存结果。"); setWaiting(true); });
   const abandon = () => { if (window.confirm("放弃这一回合？已完成的部分会留在记录里，不会并进正文。")) void manage({ action: "abandon", run_id: unfinished!.operation_id } as ManageCommand); };
   return <div className="writing-app">
-    <nav className="wa-nav" aria-label="创作导航"><strong>书中人 <small>共写一个世界</small></strong><div><button aria-pressed={view === "chat"} onClick={() => setView("chat")}>对话</button><button aria-pressed={view === "setup"} onClick={() => setView("setup")}>故事设定</button><button aria-pressed={view === "writing"} disabled={!session} onClick={() => setView("writing")}>写作台</button><button aria-pressed={view === "library"} onClick={() => void attempt(async () => { setStories(await api<StoryList>("/api/story/library")); setView("library"); })}>我的作品</button></div></nav>
-    {error && <div className="wa-error" role="alert"><p>{error}</p><button onClick={() => setError("")}>收起提示</button></div>}
+    <nav className="wa-nav" aria-label="创作导航"><strong>书中人 <small>共写一个世界</small></strong><div><button aria-pressed={view === "chat"} onClick={() => setView("chat")}>对话</button><button aria-pressed={view === "setup"} onClick={() => setView("setup")}>故事设定</button><button aria-pressed={view === "writing"} disabled={!session} onClick={() => setView("writing")}>写作台</button><button aria-pressed={view === "library"} onClick={() => void attempt(async () => { setStories(await api<StoryList>("/api/story/library")); setView("library"); })}>我的作品</button><button onClick={() => { if (window.confirm("开始新项目？当前故事在本机浏览器的草稿、任务与演化标记会被清空；服务端已保存的故事不受影响。")) clearStoryState(); }}>新建项目</button></div></nav>
+    {error && view !== "chat" && <div className="wa-error" role="alert"><p>{error}</p><button onClick={() => setError("")}>收起提示</button></div>}
     {view === "chat" && <ConversationHome model={props.model} session={session} title={title} idea={props.model.snapshot.input} onIdeaChange={props.actions.setInput} task={task} busy={busy} running={running} waiting={waiting} unfinished={unfinished} lastRun={lastRun} conversation={conversation ?? null} continuation={continuation ?? null} dialogue={dialogue} input={input} onInput={editInput} close={close} onClose={setClose} onStart={() => void startStory()} onSubmit={command => void submit(command)} onOpenWorkbench={() => setView("setup")} onRefresh={() => void refresh()} onExport={exportAll} onCancelTask={cancelTask} onToggleWaiting={() => setWaiting(!waiting)} onAbandon={abandon} worldAhead={worldAhead} onSyncWorld={onSyncWorld} />}
     {view === "setup" && <><section className="wa-entry"><div><b>带着设定开始写</b><p>不用逐项确认，我会直接生成开篇。</p></div><label><input type="checkbox" checked={props.model.autoNpcs} onChange={e => props.actions.setAutoNpcs(e.target.checked)} />同时生成角色（会多消耗一次额度）</label><button className="wa-primary" disabled={busy || props.model.busy || !props.model.restored} onClick={() => void initialize()}>开始写作</button></section><StoryWorkbench {...props} /></>}
     {view === "library" && <main className="wa-library"><h1>我的作品</h1><p>每个故事都保存在这台电脑上。</p><div className="wa-actions"><button onClick={() => { props.actions.restart(); setView("setup"); }}>新建故事</button><label className="wa-file">导入备份<input type="file" accept=".json" onChange={e => { const file = e.target.files?.[0]; if (!file) return; void attempt(async () => { if (file.size > 20_000_000) throw Error("备份不能超过 20 MB。"); const next = await api<StorySession>("/api/story/library", { action: "import", backup: JSON.parse(await file.text()) }); await open(next.snapshot.world.story_id); }); e.target.value = ""; }} /></label></div>{stories.length === 0 && <p className="wa-empty">还没有作品。去“故事设定”准备一个世界，或直接在“对话”里写下第一句话。</p>}<ul className="wa-books">{stories.map(story => <li key={story.story_id}><h2>{story.title}</h2><p>{story.turns} 段正文 · {story.chapters} 章</p>{story.error ? <p role="alert">{story.error}</p> : <button disabled={busy} onClick={() => void attempt(() => open(story.story_id))}>打开作品</button>}</li>)}</ul></main>}

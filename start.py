@@ -94,7 +94,7 @@ def main() -> int:
     if port_is_open():
         if status_is_up():
             print("服务已在运行，直接打开浏览器。", flush=True)
-            webbrowser.open(BASE_URL)
+            webbrowser.open(BASE_URL + "/?fresh=1" if "--fresh" in sys.argv[1:] else BASE_URL)
             return 0
         pause_before_close(f"端口 {PORT} 已被其他程序占用，请先关闭该程序。")
         return 1
@@ -118,7 +118,7 @@ def main() -> int:
                 pause_before_close(f"服务启动失败，退出码 {process.returncode}。")
             return 1
         print(f"服务已就绪：{BASE_URL}", flush=True)
-        webbrowser.open(BASE_URL)
+        webbrowser.open(BASE_URL + "/?fresh=1" if "--fresh" in sys.argv[1:] else BASE_URL)
         print("按 Ctrl+C 或关闭本窗口即可停止服务。", flush=True)
         process.wait()
     except KeyboardInterrupt:

@@ -6,6 +6,7 @@ import type { NarrativeTask } from "@/lib/orchestration/tasks";
 import { GenerationStatus, pipelineSteps } from "./GenerationStatus";
 import { NarrativeCompose, type PendingDialogueCue } from "./NarrativeCompose";
 import { NarrativeProse } from "./NarrativeProse";
+import { isInternalPrompt } from "./internal-prompts";
 
 export type ConversationHomeProps = {
   model: WorkbenchModel; session: StorySession | null; title: string;
@@ -38,10 +39,10 @@ export function ConversationHome(props: ConversationHomeProps) {
       </div>
       {session && <div className="wa-actions"><button type="button" onClick={props.onRefresh} disabled={props.busy}>刷新</button><button type="button" onClick={props.onExport}>导出全文</button></div>}
     </header>
-    {(starting || props.unfinished) && <GenerationStatus label={starting ? "正在生成世界观、人物和开篇" : "正在往下写这一段"} steps={props.unfinished ? pipelineSteps(props.unfinished) : undefined} startedAt={props.unfinished?.created_at} />}
+    {(starting || props.running) && <GenerationStatus label={starting ? "正在生成世界观、人物和开篇" : "正在往下写这一段"} steps={props.running && props.lastRun ? pipelineSteps(props.lastRun) : undefined} startedAt={props.running ? props.unfinished?.created_at : null} />}
     <div className="wa-home__log" ref={log} aria-label="创作对话">
       {messages.length === 0 && !hasWorld && !starting && <article className="wa-home__message" data-role="assistant"><small>书中人</small><p>写下你想写的故事。我会先生成世界观、人物和开篇，之后我们就在这个对话里继续。</p></article>}
-      {messages.map(message => <article key={message.id} className="wa-home__message" data-role={message.role}><small>{message.role === "user" ? "你" : message.role === "assistant" ? "书中人" : "系统"}</small><p>{message.content}</p></article>)}
+      {messages.filter(message => !isInternalPrompt(message.content)).map(message => <article key={message.id} className="wa-home__message" data-role={message.role}><small>{message.role === "user" ? "你" : message.role === "assistant" ? "书中人" : "系统"}</small><p>{message.content}</p></article>)}
       {starting && <article className="wa-home__message" data-role="assistant"><small>书中人</small><p>{model.stage}……</p></article>}
       {hasWorld && <article className="wa-home__card"><b>世界观和人物已经就绪</b><p>{world.title.value}{world.logline.value ? " · " + world.logline.value : world.summary.value ? " · " + world.summary.value : ""}</p><p><small>{model.snapshot.characters.characters.length} 个角色 · 年表 {world.timeline.length} 条 · 第 {model.snapshot.snapshot_revision} 版设定</small></p><button type="button" onClick={props.onOpenWorkbench}>查看和修改设定</button>{props.worldAhead && <p className="wa-home__ahead" role="status">世界观已经有新的演化（第 {model.snapshot.snapshot_revision} 版），并入故事后下一轮写作就会用上。<button type="button" onClick={props.onSyncWorld}>并入故事</button></p>}</article>}
     </div>

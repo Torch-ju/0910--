@@ -76,7 +76,7 @@ describe("ConversationHome", () => {
   it("shows the live step row while a turn is evolving", () => {
     const evolving = session();
     evolving.runs = [{ operation_id: "op_1", fingerprint: "f", base_revision: 1, input: "继续", close_chapter: false, status: "running", steps: { roles: { status: "done", attempt: 1 }, transcription: { status: "running", attempt: 1 } }, created_at: new Date().toISOString() }];
-    render(<ConversationHome {...props({ session: evolving, running: true, unfinished: evolving.runs[0], task: { task_id: "task_1", command: { story_id: "s", operation_id: "op_1", base_revision: 1, input: "继续" }, status: "running", created_at: "" } })} />);
+    render(<ConversationHome {...props({ session: evolving, running: true, unfinished: evolving.runs[0], lastRun: evolving.runs[0], task: { task_id: "task_1", command: { story_id: "s", operation_id: "op_1", base_revision: 1, input: "继续" }, status: "running", created_at: "" } })} />);
     expect(screen.getByText("正在往下写这一段")).toBeTruthy();
     expect(screen.getByText("正文")).toBeTruthy();
     expect(screen.getByText("记忆整理")).toBeTruthy();

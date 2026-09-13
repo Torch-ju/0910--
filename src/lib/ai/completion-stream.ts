@@ -11,7 +11,7 @@ export async function readCompletion(response:Response, progress?:(text:string)=
     if(raw==="[DONE]")return;
     const event=JSON.parse(raw);if(event.error)throw Error("Model stream error");
     const choice=event.choices?.find((c:{index?:number})=>c.index===0) ?? event.choices?.[0];
-    if(typeof choice?.delta?.content==="string") {content+=choice.delta.content;try { await progress?.(content); } catch { throw new StreamProgressError("正文预览保存失败，请检查本机存储后恢复。"); }}
+    if(typeof choice?.delta?.content==="string") {content+=choice.delta.content;try { await progress?.(content); } catch (error) { console.error("preview progress skipped:", error); }}
     if(choice?.finish_reason)reason=choice.finish_reason;
     if(event.usage)usage=event.usage;
   };

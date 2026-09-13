@@ -26,6 +26,14 @@ export function useWorkbench():{model:WorkbenchModel;actions:WorkbenchActions}{
   useEffect(()=>{
     queueMicrotask(()=>{
       try{
+        // ?fresh=1 clears every story-related local key before hydration, so an explicit URL starts a brand-new project.
+        if (new URLSearchParams(window.location.search).get("fresh") === "1") {
+          const active = localStorage.getItem("shuzhongren.active-story");
+          localStorage.removeItem("shuzhongren.active-story");
+          localStorage.removeItem(STORAGE_KEY);
+          if (active) { localStorage.removeItem("shuzhongren.input." + active); localStorage.removeItem("shuzhongren.task." + active); localStorage.removeItem("shuzhongren.evolved." + active); }
+          window.history.replaceState(null, "", window.location.pathname);
+        }
         const raw=localStorage.getItem(STORAGE_KEY);
         if(raw){const data=deserializeWorkspace(raw);update({snapshot:data.current,previous:data.previous,candidate:data.candidate,pending:data.pending,savedAt:data.saved_at,restored:true,error:null,stage:data.pending?"正在继续上次没完成的生成":"已恢复上次的创作"});}
         else update({restored:true});
