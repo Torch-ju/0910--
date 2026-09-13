@@ -2,11 +2,11 @@
 
 ## 当前工作单元
 
-- operation_id / last_operation_id：OP-20260913-029。
-- 目标：恢复本地服务，并用真实模型对演示输入做一次有界验收（世界框架+识别+NPC+首轮）。
-- 操作状态：BLOCKED（服务已恢复；真实模型返回 401，验收未完成）。
+- operation_id / last_operation_id：OP-20260913-030。
+- 目标：新增极简主对话入口作为默认页，设定信息不再平铺；统一正文与输入区实现；修正过期请求文案。
+- 操作状态：CHECKED。
 - 用户授权：实施本地功能及真实文本模型验收；公开部署仍需目标环境，用户已明确授权将全部代码和文件推送到仓库主分支。
-- 影响文件：runtime/dev/（本地验收脚本与证据，Git 忽略）、memory/HISTORY.md、memory/CURRENT.md。
+- 影响文件：src/features/writing/{WritingApp,ConversationHome,NarrativeProse,NarrativeCompose}.tsx、writing.css、src/features/story/use-workbench.ts、StoryWorkbenchShell.tsx 及其测试、README.md、PRD.md、docs/PRODUCT_SPEC.md、memory/CURRENT.md、memory/HISTORY.md、memory/DECISIONS.md。
 
 ## 本轮交付与验证
 
@@ -186,3 +186,9 @@ OP024后续核验：再次重试时直连fetch与push已成功，GitHub main更�
 BLOCKED：真实调用返回 `httpStatus 401`（402ms，`provider_error`，证据 `runtime/dev/demo-wuxia-2026-09-13T01-12-13.778Z/ledger.json`）。`runtime/model-requests.json` 中最后一次成功调用为 2026-09-12T09:47Z，此后均为失败；`LLM_BASE_URL` 为 api.openai-next.com。判断为密钥失效/被拒，不是应用缺陷；修复需用户提供有效 `LLM_API_KEY`。按“同一问题不盲试”要求未重复重试。
 
 同时说明：`runtime/dev/demo-wuxia-2026-09-13T01-12-04.413Z/report.json` 记录的是 harness 环境未注入 `.env.local`（test 环境不加载 `.env.local`）导致的“未配置模型”，属脚本环境问题，不代表产品配置缺失。验收结论为 NOT_RUN，不得写成演示已通过。
+
+
+
+## OP-20260913-030 · CHECKED · 极简主对话入口
+
+默认页改为「对话」页：一个输入框依次驱动世界、人物、开篇与续写，世界与人物只显示一张摘要卡片，细节在「故事设定」工作台；导航为对话 / 故事设定 / 写作台 / 我的作品，正文与输入区由 NarrativeProse 与 NarrativeCompose 共用，避免两处实现漂移。revision_conflict 文案改为“上一轮生成已过期”，重试按钮改为“按当前草稿重新生成”。156 项离线测试（新增 7 项）、Lint、本次改动文件的 tsc 检查 PASS；真实浏览器空存储验证默认页、导航与“开始故事”确实发起 framework 请求。合成模型无 framework/NPC 画像分支，全链路由 jsdom 集成测试覆盖；生产构建仅被 runtime/dev/demo-wuxia.test.ts（另一会话 harness）类型错误拦截。下一步：供应商恢复可用后，用户在真实模型下刷新体验对话页首轮生成。

@@ -374,3 +374,14 @@ OP024发布恢复：再次重试git fetch origin成功，普通git push origin m
 - FAILED（外部阻塞）：`framework` 首次真实调用即返回 `httpStatus 401`、`provider_error`、402ms，证据 `runtime/dev/demo-wuxia-2026-09-13T01-12-13.778Z/ledger.json`。`runtime/model-requests.json` 最近成功调用为 2026-09-12T09:47Z（http 200，118477ms），其后多次失败均已保留；`LLM_BASE_URL` 指向 api.openai-next.com，判断为密钥失效或被拒，非应用缺陷。未重复重试，未产生成功模型输出。
 - 环境注记：首次运行因 test 环境不加载 `.env.local` 报“未配置模型”（工件 `runtime/dev/demo-wuxia-2026-09-13T01-12-04.413Z/report.json`）；按 `scripts/testing/real.mjs` 先在父进程 `loadEnvConfig` 再派生 vitest 后解决，该记录不代表产品缺少模型配置。
 - 下一步：用户提供有效 `LLM_API_KEY` 后可重跑 `node runtime/dev/run-demo.mjs`，或在本地 UI 粘贴主推版走演示；演示是否通过仍为 NOT_RUN。
+
+
+
+## OP-20260913-030：极简主对话入口
+
+- 新增默认「对话」页（ConversationHome）：一条消息流加一个输入框。无会话时提交想法即依次执行 framework → NPC → initialize → 开篇轮次；有会话时同一输入框走既有叙事轮次与 NPC 对话停点；世界、人物、时间线只显示摘要卡片，点击进入设定工作台。
+- 抽出 NarrativeProse（正文与流式预览）与 NarrativeCompose（进度、恢复、可能计费操作、输入），对话页与写作台共用；写作台保留正文 / 人物与记忆 / 章节与伏笔 / 设定同步四个面板；导航改为对话 / 故事设定 / 写作台 / 我的作品。
+- 修正过期请求文案：revision_conflict 由“草稿已修改，请基于当前内容重新生成。”改为“上一轮生成已过期：草稿在请求之后有改动。基于当前草稿重新生成会再次调用模型。”；错误横幅重试按钮改为“按当前草稿重新生成”，并同步更新对应 UI 测试。
+- 验证 PASS：156 项离线测试（新增 ConversationHome 5 项、WritingApp 集成 2 项）；Lint 无问题；tsc 对本次改动文件无错误；真实浏览器（独立 playwright 会话、空存储）确认默认页为对话页、导航可切换、空输入时按钮禁用，点击“开始故事”确实发出 POST /api/story/framework。
+- 边界：合成模型 scripts/testing/model-server.mjs 不含 framework 与 NPC 画像分支，无法用它跑“一句话开始”全链路，该链路改由 jsdom 集成测试覆盖；生产构建被 runtime/dev/demo-wuxia.test.ts（另一会话的 Git 忽略 harness）类型错误拦住，webpack 编译本身 PASS。该 framework 真实调用在本次验证中同样失败（账本 used 24→25），与 OP-20260913-029 记录的 401 一致。
+- 未提交、未推送。
