@@ -2,11 +2,11 @@
 
 ## 当前工作单元
 
-- operation_id / last_operation_id：OP-20260913-028。
-- 目标：把 OP-026/OP-027 的交付（`start.py` 与演示输入文档）提交并推送到 origin/main。
-- 操作状态：CHECKED。
+- operation_id / last_operation_id：OP-20260913-029。
+- 目标：恢复本地服务，并用真实模型对演示输入做一次有界验收（世界框架+识别+NPC+首轮）。
+- 操作状态：BLOCKED（服务已恢复；真实模型返回 401，验收未完成）。
 - 用户授权：实施本地功能及真实文本模型验收；公开部署仍需目标环境，用户已明确授权将全部代码和文件推送到仓库主分支。
-- 影响文件：start.py、examples/demo-wuxia-input.md、README.md、memory/HISTORY.md、memory/CURRENT.md（提交 066ecf23）。
+- 影响文件：runtime/dev/（本地验收脚本与证据，Git 忽略）、memory/HISTORY.md、memory/CURRENT.md。
 
 ## 本轮交付与验证
 
@@ -175,3 +175,14 @@ OP024后续核验：再次重试时直连fetch与push已成功，GitHub main更�
 未纳入本次提交：next-env.d.ts（Next 开发模式自动改写为 .next/dev/types，属生成噪声）；`0913 存储/0913 存储.zip`（约490MB 备份包，不适合入仓）；根目录 8 个 `modify_*.py` 临时改写脚本（历史工具脚本，记忆与文档均未引用）。纳入或清理需用户明确指示，删除仍按审批处理。
 
 下一步：用户在本地按 `examples/demo-wuxia-input.md` 的步骤粘贴主推版走一遍演示；PRODUCT-04 真实长篇语义验收（PARTIAL）与 PRODUCT-06 公网发布（TODO）分别需要真实模型费用与目标环境。
+
+
+## OP-20260913-029 · BLOCKED · 演示输入真实验收
+
+本地服务原已停止（3000 拒绝连接）；重新以登记的 `npm run dev` 启动，Next.js Ready in 332ms，`GET /api/story/status` 返回 200，模型 `doubao-seed-2-0-pro-260215`，账本 used=24（exec session 68084）。服务现已可用，用户可直接演示。
+
+验收脚本 `runtime/dev/{vitest.demo.config.ts,demo-wuxia.test.ts,run-demo.mjs}`（Git 忽略的一次性验收harness，按 `scripts/testing/real.mjs` 方式先注入 `.env.local`）取 `examples/demo-wuxia-input.md` 主推版，走 `StoryAgents.framework → npcs → MainAgent.turn`。
+
+BLOCKED：真实调用返回 `httpStatus 401`（402ms，`provider_error`，证据 `runtime/dev/demo-wuxia-2026-09-13T01-12-13.778Z/ledger.json`）。`runtime/model-requests.json` 中最后一次成功调用为 2026-09-12T09:47Z，此后均为失败；`LLM_BASE_URL` 为 api.openai-next.com。判断为密钥失效/被拒，不是应用缺陷；修复需用户提供有效 `LLM_API_KEY`。按“同一问题不盲试”要求未重复重试。
+
+同时说明：`runtime/dev/demo-wuxia-2026-09-13T01-12-04.413Z/report.json` 记录的是 harness 环境未注入 `.env.local`（test 环境不加载 `.env.local`）导致的“未配置模型”，属脚本环境问题，不代表产品配置缺失。验收结论为 NOT_RUN，不得写成演示已通过。

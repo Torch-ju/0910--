@@ -365,3 +365,12 @@ OP024发布恢复：再次重试git fetch origin成功，普通git push origin m
 - CHECKED：`git push origin main` 回执 3cdb2b3d..066ecf23；`git ls-remote origin refs/heads/main` 返回 066ecf23eefab19f892fe5bfdc0876f41066970f，与本地 `git rev-parse HEAD` 一致。未强推、未改全局配置，暂存内容不含 .env*、runtime/、output/、.next。
 - 边界：next-env.d.ts 的 `.next/dev/types` 自动改写、`0913 存储/0913 存储.zip`（约490MB）与根目录 8 个 `modify_*.py` 临时脚本未纳入提交；纳入或删除需用户明确指示。
 - 未变边界：PRODUCT-04 真实长篇语义验收仍 PARTIAL，PRODUCT-06 公网发布仍 TODO，分别需要真实模型费用与目标环境。
+
+
+## OP-20260913-029：演示输入真实验收（阻塞）
+
+- APPLIED：本地服务恢复。原 3000 端口拒绝连接；以 `npm run dev` 重启，Ready in 332ms，`GET /api/story/status` 200，模型 `doubao-seed-2-0-pro-260215`，账本 used=24，exec session 68084。
+- APPLIED：新增 Git 忽略的一次性验收 harness `runtime/dev/vitest.demo.config.ts`、`runtime/dev/demo-wuxia.test.ts`、`runtime/dev/run-demo.mjs`，读取 `examples/demo-wuxia-input.md` 主推版（2563 字节）并调用真实 `StoryAgents.framework`、`npcs` 与 `MainAgent.turn`，工件写入 `runtime/dev/demo-wuxia-<时间戳>/`。
+- FAILED（外部阻塞）：`framework` 首次真实调用即返回 `httpStatus 401`、`provider_error`、402ms，证据 `runtime/dev/demo-wuxia-2026-09-13T01-12-13.778Z/ledger.json`。`runtime/model-requests.json` 最近成功调用为 2026-09-12T09:47Z（http 200，118477ms），其后多次失败均已保留；`LLM_BASE_URL` 指向 api.openai-next.com，判断为密钥失效或被拒，非应用缺陷。未重复重试，未产生成功模型输出。
+- 环境注记：首次运行因 test 环境不加载 `.env.local` 报“未配置模型”（工件 `runtime/dev/demo-wuxia-2026-09-13T01-12-04.413Z/report.json`）；按 `scripts/testing/real.mjs` 先在父进程 `loadEnvConfig` 再派生 vitest 后解决，该记录不代表产品缺少模型配置。
+- 下一步：用户提供有效 `LLM_API_KEY` 后可重跑 `node runtime/dev/run-demo.mjs`，或在本地 UI 粘贴主推版走演示；演示是否通过仍为 NOT_RUN。
